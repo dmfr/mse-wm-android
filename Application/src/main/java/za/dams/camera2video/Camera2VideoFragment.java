@@ -118,7 +118,7 @@ public class Camera2VideoFragment extends Fragment
 
 
     private static Size[] sSizes = new Size[]{
-            new Size(1920,1080),
+            //new Size(1920,1080),
             new Size(1280,720)
     } ;
 
@@ -285,7 +285,7 @@ public class Camera2VideoFragment extends Fragment
             if (map == null) {
                 throw new RuntimeException("Cannot get available preview/video sizes");
             }
-            mVideoSize = chooseVideoSize(map.getOutputSizes(MediaRecorder.class));
+            mVideoSize = chooseVideoSize(map.getOutputSizes(MediaCodec.class));
             Log.d("damsdebug", "VideoSize : "+mVideoSize.getWidth()+" x "+mVideoSize.getHeight());
 
             int orientation = getResources().getConfiguration().orientation;
@@ -464,12 +464,14 @@ public class Camera2VideoFragment extends Fragment
         MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
                 streamWidth, streamHeight);
         format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileConstrainedBaseline);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, 8000000);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 4000000);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+        format.setInteger(MediaFormat.KEY_OPERATING_RATE, 30);
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 0);
         format.setInteger(MediaFormat.KEY_LATENCY, 0);
+        format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
         // Set the encoder priority to realtime.
         format.setInteger(MediaFormat.KEY_PRIORITY, 0x00);
@@ -485,10 +487,11 @@ public class Camera2VideoFragment extends Fragment
             public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
                 ByteBuffer outputBuffer = codec.getOutputBuffer(index);
 
-                Log.i("has", String.valueOf(outputBuffer.hasRemaining()));
-                Log.e("damsdebug","Buffer has "+outputBuffer.remaining());
+                //Log.i("has", String.valueOf(outputBuffer.hasRemaining()));
+                //Log.e("damsdebug","Buffer has "+outputBuffer.remaining());
 
                // int length = outputBuffer
+                websocket.send(ByteString.of(outputBuffer));
 
                 codec.releaseOutputBuffer(index, false);
             }
