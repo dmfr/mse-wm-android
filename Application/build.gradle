@@ -3,6 +3,7 @@ buildscript {
     repositories {
         jcenter()
         google()
+        mavenCentral()
     }
 
     dependencies {
@@ -15,11 +16,13 @@ apply plugin: 'com.android.application'
 repositories {
     jcenter()
     google()
+    mavenCentral()
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'com.google.android.material:material:1.1.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
 }
 
 

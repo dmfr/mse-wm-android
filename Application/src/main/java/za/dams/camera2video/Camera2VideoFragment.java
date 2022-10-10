@@ -69,8 +69,44 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.ConnectionSpec;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
+
 public class Camera2VideoFragment extends Fragment
         implements View.OnClickListener {
+
+    private final class VideoSocketListener extends WebSocketListener {
+        private static final int NORMAL_CLOSURE_STATUS = 1000;
+        @Override
+        public void onOpen(WebSocket webSocket, Response response) {
+            Log.w("DAMSDEBUG","WEBSOCKET OPEN !!!") ;
+            Camera2VideoFragment.this.wsRunning = true ;
+        }
+        @Override
+        public void onMessage(WebSocket webSocket, String text) {
+            //output("Receiving : " + text);
+        }
+        @Override
+        public void onMessage(WebSocket webSocket, ByteString bytes) {
+            //output("Receiving bytes : " + bytes.hex());
+        }
+        @Override
+        public void onClosing(WebSocket webSocket, int code, String reason) {
+            webSocket.close(NORMAL_CLOSURE_STATUS, null);
+            //output("Closing : " + code + " / " + reason);
+        }
+        @Override
+        public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+            Log.w("DAMSDEBUG","Error : " + t.getMessage());
+            Camera2VideoFragment.this.wsError = true ;
+        }
+    }
+
 
     private static final int SENSOR_ORIENTATION_DEFAULT_DEGREES = 90;
     private static final int SENSOR_ORIENTATION_INVERSE_DEGREES = 270;
@@ -95,6 +131,12 @@ public class Camera2VideoFragment extends Fragment
     private Size mVideoSize;
 
     private MediaCodec mMediaCodec;
+
+    private OkHttpClient okHttpClient ;
+    private WebSocket websocket ;
+    private boolean wsRunning ;
+    private boolean wsError ;
+
 
     /**
      * Whether the app is recording video now
@@ -152,6 +194,12 @@ public class Camera2VideoFragment extends Fragment
         });
         mButtonVideo = (ImageButton) view.findViewById(R.id.video);
         mButtonVideo.setOnClickListener(this);
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        okHttpClient = new OkHttpClient();
     }
 
     @Override
@@ -498,6 +546,12 @@ public class Camera2VideoFragment extends Fragment
         }
     }
 
+    private void setUpWebsocket() {
+        Request request = new Request.Builder().url("wss://10-39-10-209.int.mirabel-sil.com:8080/record").build();
+        websocket = okHttpClient.newWebSocket(request, new VideoSocketListener());
+        //okHttpClient.dispatcher().executorService().shutdown();
+    }
+
     private String getVideoFilePath(Context context) {
         final File dir = context.getExternalFilesDir(null);
         return (dir == null ? "" : (dir.getAbsolutePath() + "/"))
@@ -515,7 +569,20 @@ public class Camera2VideoFragment extends Fragment
                 public void run() {
                     try {
                         setUpMediaCodec();
-                        Thread.sleep(1000);
+
+                        setUpWebsocket() ;
+                        int wsTries=0 ;
+                        while(wsTries<10) {
+                            Thread.sleep(1000);
+                            if( wsRunning || wsError ) {
+                                break ;
+                            }
+                            wsTries++ ;
+                        }
+                        if( !wsRunning ) {
+                            throw new Exception("Cannot open WS") ;
+                        }
+
                         new Handler(Looper.getMainLooper()).post(new Runnable() {
                             @Override
                             public void run() {
@@ -524,7 +591,13 @@ public class Camera2VideoFragment extends Fragment
                             }
                         });
                     } catch( Exception e ) {
-
+                        e.printStackTrace();
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                stopRecordingVideo();
+                            }
+                        });
                     }
                 }
             }).start();
