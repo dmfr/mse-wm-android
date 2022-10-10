@@ -36,10 +36,13 @@ import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
@@ -50,12 +53,15 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -151,6 +157,7 @@ public class Camera2VideoFragment extends Fragment
     @Override
     public void onResume() {
         super.onResume();
+        updateUI();
     }
 
     @Override
@@ -163,7 +170,7 @@ public class Camera2VideoFragment extends Fragment
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.video: {
-                if (mIsRecordingVideo) {
+                if (mIsRecordingVideo || mIsRecordingVideoPending) {
                     stopRecordingVideo();
                 } else {
                     startRecordingVideo();
@@ -321,18 +328,18 @@ public class Camera2VideoFragment extends Fragment
         try {
             closeCaptureSession();
 
-            CaptureRequest.Builder previewBuilder = mCameraDevice.createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
+            CaptureRequest.Builder camRequestBuilder = mCameraDevice.createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
             List<Surface> surfaces = new ArrayList<>();
 
             // Set up Surface for the camera preview
             Surface previewSurface = mSurfaceView.getHolder().getSurface();
             surfaces.add(previewSurface);
-            previewBuilder.addTarget(previewSurface);
+            camRequestBuilder.addTarget(previewSurface);
 
             if( mIsRecordingVideoPending && (mMediaCodec != null) ) {
                 Surface encoderSurface = mMediaCodec.createInputSurface() ;
                 surfaces.add(encoderSurface);
-                previewBuilder.addTarget(encoderSurface);
+                camRequestBuilder.addTarget(encoderSurface);
             }
 
             mCameraDevice.createCaptureSession(surfaces,
@@ -342,33 +349,33 @@ public class Camera2VideoFragment extends Fragment
                         public void onConfigured(CameraCaptureSession session) {
                             mCaptureSession = session;
 
-                            previewBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-                            previewBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON);
+                            camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+                            camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(30, 30));
+                            camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                                    mIsRecordingVideoPending ? CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON : CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF );
 
-                            previewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(30, 30)) ;
+                            if( mIsRecordingVideoPending ) {
+                                mMediaCodec.start() ;
+                            }
 
                             mBackgroundThread = new HandlerThread("CameraBackground");
                             mBackgroundThread.start();
                             mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
                             try {
-                                mCaptureSession.setRepeatingRequest(previewBuilder.build(), null, mBackgroundHandler);
+                                mCaptureSession.setRepeatingRequest(camRequestBuilder.build(), null, mBackgroundHandler);
                             } catch( Exception e ) {
                                 e.printStackTrace();
                             }
                             if( mIsRecordingVideoPending ) {
-                                getActivity().runOnUiThread(new Runnable() {
+                                new Handler(Looper.getMainLooper()).post(new Runnable() {
                                     @Override
                                     public void run() {
                                         mIsRecordingVideoPending = false ;
-                                        // UI
-                                        //mButtonVideo.setText(R.string.stop);
                                         mIsRecordingVideo = true;
 
-                                        // Start codec ??
+                                        updateUI();
                                     }
                                 });
-
                             }
                         }
 
@@ -388,7 +395,67 @@ public class Camera2VideoFragment extends Fragment
 
 
     private void setUpMediaCodec() throws IOException {
-        /*
+        int orientation = getResources().getConfiguration().orientation;
+        int streamWidth,streamHeight ;
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            streamWidth = mVideoSize.getWidth() ;
+            streamHeight = mVideoSize.getHeight() ;
+        } else {
+            streamHeight = mVideoSize.getWidth() ;
+            streamWidth = mVideoSize.getHeight() ;
+        }
+
+        mEncoderThread = new HandlerThread("EncoderBackground");
+        mEncoderThread.start();
+        mEncoderHandler = new Handler(mEncoderThread.getLooper());
+
+        mMediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
+//            MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
+//                    width, height);
+
+        MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
+                streamWidth, streamHeight);
+        format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileConstrainedBaseline);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 8000000);
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+        format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 0);
+        format.setInteger(MediaFormat.KEY_LATENCY, 0);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
+        // Set the encoder priority to realtime.
+        format.setInteger(MediaFormat.KEY_PRIORITY, 0x00);
+        mMediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+
+        mMediaCodec.setCallback(new MediaCodec.Callback() {
+            @Override
+            public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+
+            }
+
+            @Override
+            public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+                ByteBuffer outputBuffer = codec.getOutputBuffer(index);
+
+                Log.i("has", String.valueOf(outputBuffer.hasRemaining()));
+                Log.e("damsdebug","Buffer has "+outputBuffer.remaining());
+
+               // int length = outputBuffer
+
+                codec.releaseOutputBuffer(index, false);
+            }
+
+            @Override
+            public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
+
+            }
+
+            @Override
+            public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
+
+            }
+        },mEncoderHandler);
+       /*
         final Activity activity = getActivity();
         if (null == activity) {
             return;
@@ -416,11 +483,14 @@ public class Camera2VideoFragment extends Fragment
         }
         mMediaRecorder.prepare();
          */
+        //mMediaCodec.start() ;
     }
     private void destroyMediaCodec() {
-        mMediaCodec.flush();
-        mMediaCodec.release();
-        mMediaCodec = null ;
+        if( mMediaCodec != null ) {
+            mMediaCodec.stop() ;
+            mMediaCodec.release();
+            mMediaCodec = null;
+        }
         if( mEncoderThread != null ) {
             mEncoderThread.quitSafely();
             mEncoderThread = null ;
@@ -439,13 +509,25 @@ public class Camera2VideoFragment extends Fragment
             return;
         }
         try {
-            closeCaptureSession();
-
             mIsRecordingVideoPending = true ;
-            setUpMediaCodec();
+            updateUI() ;
+            new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        setUpMediaCodec();
+                        Thread.sleep(1000);
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                mIsRecordingVideoPending = true ;
+                                startCaptureSession();
+                            }
+                        });
+                    } catch( Exception e ) {
 
-            startCaptureSession();
-
+                    }
+                }
+            }).start();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -454,14 +536,33 @@ public class Camera2VideoFragment extends Fragment
 
     private void stopRecordingVideo() {
         // UI
+        mIsRecordingVideoPending = false ;
         mIsRecordingVideo = false ;
-        //mButtonVideo.setText(R.string.record);
+        updateUI() ;
 
         // Stop recording
         closeCaptureSession();
         destroyMediaCodec();
 
         startCaptureSession();
+    }
+
+
+    private void updateUI() {
+        View recordCaption = getView().findViewById(R.id.record_caption) ;
+        ImageView recordCaptionIcon = (ImageView)getView().findViewById(R.id.record_caption_icon) ;
+        TextView recordCaptionText = (TextView)getView().findViewById(R.id.record_caption_text) ;
+        if( mIsRecordingVideoPending ) {
+            recordCaptionIcon.setVisibility(View.INVISIBLE);
+            recordCaptionText.setText("Preparing...") ;
+            recordCaption.setVisibility(View.VISIBLE);
+        } else if( mIsRecordingVideo ) {
+            recordCaptionIcon.setVisibility(View.VISIBLE);
+            recordCaptionText.setText("RECORD") ;
+            recordCaption.setVisibility(View.VISIBLE);
+        } else {
+            recordCaption.setVisibility(View.GONE);
+        }
     }
 
 

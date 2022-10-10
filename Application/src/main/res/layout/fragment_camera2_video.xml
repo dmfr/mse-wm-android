@@ -11,6 +11,7 @@
         android:layout_gravity="center" />
 
     <LinearLayout
+        android:id="@+id/record_caption"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -22,6 +23,7 @@
         android:layout_alignParentTop="true">
 
         <ImageView
+            android:id="@+id/record_caption_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="4dp"
@@ -29,6 +31,7 @@
             android:src="@drawable/dot_red"/>
 
         <TextView
+            android:id="@+id/record_caption_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="4dp"
