@@ -24,6 +24,7 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.res.Configuration;
+import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
@@ -35,6 +36,8 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
+import android.media.ImageReader;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
@@ -131,6 +134,7 @@ public class Camera2VideoFragment extends Fragment
     private Size mVideoSize;
 
     private MediaCodec mMediaCodec;
+    private ImageReader mImgReader ;
 
     private OkHttpClient okHttpClient ;
     private WebSocket websocket ;
@@ -147,8 +151,11 @@ public class Camera2VideoFragment extends Fragment
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
 
-    private HandlerThread mEncoderThread;
-    private Handler mEncoderHandler;
+    private EncoderThread mEncoderThread;
+
+    private HandlerThread mImageThread ;
+    private Handler mImageHandler ;
+
 
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
 
@@ -385,9 +392,44 @@ public class Camera2VideoFragment extends Fragment
             camRequestBuilder.addTarget(previewSurface);
 
             if( mIsRecordingVideoPending && (mMediaCodec != null) ) {
-                Surface encoderSurface = mMediaCodec.createInputSurface() ;
-                surfaces.add(encoderSurface);
-                camRequestBuilder.addTarget(encoderSurface);
+                mImageThread = new HandlerThread("imgThread") ;
+                mImageThread.start();
+                mImageHandler = new Handler(mImageThread.getLooper());
+
+                mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.YUV_420_888,5);
+                Surface imgSurface = mImgReader.getSurface() ;
+                surfaces.add(imgSurface);
+                camRequestBuilder.addTarget(imgSurface);
+                mImgReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(ImageReader reader) {
+                        Image img = reader.acquireLatestImage() ;
+                        if( img==null ) {
+                            return ;
+                        }
+
+                        int inputBufferId = mMediaCodec.dequeueInputBuffer(0);
+                        if (inputBufferId >= 0) {
+                            int sizeReturn = mMediaCodec.getInputBuffer(inputBufferId).remaining() ;
+                            Image imgwrite = mMediaCodec.getInputImage(inputBufferId) ;
+                            for( int i=0 ; i<imgwrite.getPlanes().length ; i++ ) {
+                                ByteBuffer buffer = img.getPlanes()[i].getBuffer();
+                                byte[] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes);
+
+                                imgwrite.getPlanes()[i].getBuffer().put(bytes) ;
+                            }
+                            imgwrite.close();
+                            mMediaCodec.queueInputBuffer(inputBufferId, 0, sizeReturn, 0, 0);
+                        }
+                        img.close();
+                    }
+                },mImageHandler);
+
+
+                mMediaCodec.start();
+                mEncoderThread = new EncoderThread(mMediaCodec,websocket);
+                mEncoderThread.start();
             }
 
             mCameraDevice.createCaptureSession(surfaces,
@@ -401,10 +443,6 @@ public class Camera2VideoFragment extends Fragment
                             camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(30, 30));
                             camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
                                     mIsRecordingVideoPending ? CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON : CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF );
-
-                            if( mIsRecordingVideoPending ) {
-                                mMediaCodec.start() ;
-                            }
 
                             mBackgroundThread = new HandlerThread("CameraBackground");
                             mBackgroundThread.start();
@@ -453,9 +491,6 @@ public class Camera2VideoFragment extends Fragment
             streamWidth = mVideoSize.getHeight() ;
         }
 
-        mEncoderThread = new HandlerThread("EncoderBackground");
-        mEncoderThread.start();
-        mEncoderHandler = new Handler(mEncoderThread.getLooper());
 
         mMediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
 //            MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
@@ -477,35 +512,7 @@ public class Camera2VideoFragment extends Fragment
         format.setInteger(MediaFormat.KEY_PRIORITY, 0x00);
         mMediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
 
-        mMediaCodec.setCallback(new MediaCodec.Callback() {
-            @Override
-            public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
 
-            }
-
-            @Override
-            public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
-                ByteBuffer outputBuffer = codec.getOutputBuffer(index);
-
-                //Log.i("has", String.valueOf(outputBuffer.hasRemaining()));
-                //Log.e("damsdebug","Buffer has "+outputBuffer.remaining());
-
-               // int length = outputBuffer
-                websocket.send(ByteString.of(outputBuffer));
-
-                codec.releaseOutputBuffer(index, false);
-            }
-
-            @Override
-            public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
-
-            }
-
-            @Override
-            public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
-
-            }
-        },mEncoderHandler);
        /*
         final Activity activity = getActivity();
         if (null == activity) {
@@ -537,15 +544,24 @@ public class Camera2VideoFragment extends Fragment
         //mMediaCodec.start() ;
     }
     private void destroyMediaCodec() {
+        if( mEncoderThread != null ) {
+            mEncoderThread.terminate();
+            try {
+                mEncoderThread.join();
+            } catch( Exception e ) {
+                e.printStackTrace();
+            }
+            mEncoderThread = null ;
+        }
+        if( mImageThread != null ) {
+            mImageThread.quitSafely() ;
+            mImageThread = null ;
+            mImageHandler = null ;
+        }
         if( mMediaCodec != null ) {
             mMediaCodec.stop() ;
             mMediaCodec.release();
             mMediaCodec = null;
-        }
-        if( mEncoderThread != null ) {
-            mEncoderThread.quitSafely();
-            mEncoderThread = null ;
-            mEncoderHandler = null ;
         }
     }
 
@@ -667,6 +683,5 @@ public class Camera2VideoFragment extends Fragment
                     .create();
         }
     }
-
 
 }
