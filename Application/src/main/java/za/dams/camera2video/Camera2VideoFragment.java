@@ -124,6 +124,7 @@ public class Camera2VideoFragment extends Fragment
             //new Size(1920,1080),
             new Size(1280,720)
     } ;
+    private static int sFPS = 25 ;
 
     private AutoFitSurfaceView mSurfaceView;
     private ImageButton mButtonVideo;
@@ -147,6 +148,7 @@ public class Camera2VideoFragment extends Fragment
      */
     private boolean mIsRecordingVideoPending ;
     private boolean mIsRecordingVideo;
+    private int mNbInputImg;
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -420,13 +422,16 @@ public class Camera2VideoFragment extends Fragment
                                 imgwrite.getPlanes()[i].getBuffer().put(bytes) ;
                             }
                             imgwrite.close();
-                            mMediaCodec.queueInputBuffer(inputBufferId, 0, sizeReturn, 0, 0);
+                            int PTS = mNbInputImg * (1 * 1000 * 1000) / (sFPS+1) ;
+                            mMediaCodec.queueInputBuffer(inputBufferId, 0, sizeReturn, PTS, 0);
+                            mNbInputImg++;
                         }
                         img.close();
                     }
                 },mImageHandler);
 
 
+                mNbInputImg=0;
                 mMediaCodec.start();
                 mEncoderThread = new EncoderThread(mMediaCodec,websocket);
                 mEncoderThread.start();
@@ -440,7 +445,7 @@ public class Camera2VideoFragment extends Fragment
                             mCaptureSession = session;
 
                             camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-                            camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(30, 30));
+                            camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(sFPS, sFPS));
                             camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
                                     mIsRecordingVideoPending ? CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON : CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF );
 
@@ -498,13 +503,11 @@ public class Camera2VideoFragment extends Fragment
 
         MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
                 streamWidth, streamHeight);
-        format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileConstrainedBaseline);
+        format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh);
         format.setInteger(MediaFormat.KEY_BIT_RATE, 4000000);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
-        format.setInteger(MediaFormat.KEY_OPERATING_RATE, 30);
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 0);
+        format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR);
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, sFPS);
+        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         format.setInteger(MediaFormat.KEY_LATENCY, 0);
         format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
