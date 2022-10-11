@@ -386,7 +386,9 @@ public class Camera2VideoFragment extends Fragment
         try {
             closeCaptureSession();
 
-            CaptureRequest.Builder camRequestBuilder = mCameraDevice.createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
+            //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
+            CaptureRequest.Builder camRequestBuilder = mCameraDevice.createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_PREVIEW : CameraDevice.TEMPLATE_PREVIEW);
+
             List<Surface> surfaces = new ArrayList<>();
 
             // Set up Surface for the camera preview
