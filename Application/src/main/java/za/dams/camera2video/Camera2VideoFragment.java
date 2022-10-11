@@ -55,6 +55,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -609,6 +610,7 @@ public class Camera2VideoFragment extends Fragment
                             @Override
                             public void run() {
                                 mIsRecordingVideoPending = true ;
+                                utilKeepScreenOn(true);
                                 startCaptureSession();
                             }
                         });
@@ -631,6 +633,7 @@ public class Camera2VideoFragment extends Fragment
 
     private void stopRecordingVideo() {
         // UI
+        utilKeepScreenOn(false);
         mIsRecordingVideoPending = false ;
         mIsRecordingVideo = false ;
         updateUI() ;
@@ -687,4 +690,11 @@ public class Camera2VideoFragment extends Fragment
         }
     }
 
+    void utilKeepScreenOn( boolean torf ) {
+        if( torf ) {
+            getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
 }
