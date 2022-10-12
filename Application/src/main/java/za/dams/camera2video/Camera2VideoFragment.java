@@ -88,7 +88,6 @@ public class Camera2VideoFragment extends Fragment
         private static final int NORMAL_CLOSURE_STATUS = 1000;
         @Override
         public void onOpen(WebSocket webSocket, Response response) {
-            Log.w("DAMSDEBUG","WEBSOCKET OPEN !!!") ;
             Camera2VideoFragment.this.wsRunning = true ;
         }
         @Override
@@ -103,6 +102,10 @@ public class Camera2VideoFragment extends Fragment
         public void onClosing(WebSocket webSocket, int code, String reason) {
             webSocket.close(NORMAL_CLOSURE_STATUS, null);
             //output("Closing : " + code + " / " + reason);
+        }
+        @Override
+        public void onClosed(WebSocket webSocket, int code, String reason) {
+            Camera2VideoFragment.this.websocket = null ;
         }
         @Override
         public void onFailure(WebSocket webSocket, Throwable t, Response response) {
@@ -575,9 +578,17 @@ public class Camera2VideoFragment extends Fragment
     }
 
     private void setUpWebsocket() {
+        closeWebsocket() ;
+        
+        wsRunning = wsError = false ;
         Request request = new Request.Builder().url("wss://10-39-10-209.int.mirabel-sil.com:8080/record").build();
         websocket = okHttpClient.newWebSocket(request, new VideoSocketListener());
         //okHttpClient.dispatcher().executorService().shutdown();
+    }
+    private void closeWebsocket() {
+        if( websocket != null ) {
+            websocket.close(1000, null);
+        }
     }
 
     private String getVideoFilePath(Context context) {
@@ -649,6 +660,7 @@ public class Camera2VideoFragment extends Fragment
         // Stop recording
         closeCaptureSession();
         destroyMediaCodec();
+        closeWebsocket();
 
         if( !isGoingAway ) {
             startCaptureSession();
