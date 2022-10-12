@@ -220,6 +220,9 @@ public class Camera2VideoFragment extends Fragment
 
     @Override
     public void onPause() {
+        if (mIsRecordingVideo || mIsRecordingVideoPending) {
+            stopRecordingVideo(true);
+        }
         closeCamera();
         super.onPause();
     }
@@ -633,7 +636,10 @@ public class Camera2VideoFragment extends Fragment
     }
 
 
-    private void stopRecordingVideo() {
+    private void stopRecordingVideo(){
+        stopRecordingVideo(false);
+    }
+    private void stopRecordingVideo( boolean isGoingAway ) {
         // UI
         utilKeepScreenOn(false);
         mIsRecordingVideoPending = false ;
@@ -644,7 +650,9 @@ public class Camera2VideoFragment extends Fragment
         closeCaptureSession();
         destroyMediaCodec();
 
-        startCaptureSession();
+        if( !isGoingAway ) {
+            startCaptureSession();
+        }
     }
 
 
