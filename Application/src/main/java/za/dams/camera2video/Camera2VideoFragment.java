@@ -579,9 +579,10 @@ public class Camera2VideoFragment extends Fragment
 
     private void setUpWebsocket() {
         closeWebsocket() ;
-        
+
+        String wsUrl = getString(R.string.wssRecordUrl_extIpv6);
         wsRunning = wsError = false ;
-        Request request = new Request.Builder().url("wss://10-39-10-209.int.mirabel-sil.com:8080/record").build();
+        Request request = new Request.Builder().url(wsUrl).build();
         websocket = okHttpClient.newWebSocket(request, new VideoSocketListener());
         //okHttpClient.dispatcher().executorService().shutdown();
     }

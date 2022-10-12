@@ -5,4 +5,7 @@
     <string name="description_info">Info</string>
     <string name="permission_request">This sample needs permission for camera and audio recording.</string>
     <string name="camera_error">This device doesn\'t support Camera2 API.</string>
+
+    <string name="wssRecordUrl_extIpv6">https://wsvideo.int.mirabel-sil.com:8080/record</string>
+    <string name="wssRecordUrl_int">https://10-39-10-209.int.mirabel-sil.com:8080/record</string>
 </resources>
