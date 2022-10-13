@@ -140,6 +140,8 @@ public class Camera2VideoFragment extends Fragment
 
     private MediaCodec mMediaCodec;
     private ImageReader mImgReader ;
+    private long mImageFramePTS ;
+    private int mImageYUVbytesize ;
 
     private OkHttpClient okHttpClient ;
     private WebSocket websocket ;
@@ -407,6 +409,10 @@ public class Camera2VideoFragment extends Fragment
                 mImageThread.start();
                 mImageHandler = new Handler(mImageThread.getLooper());
 
+                mImageFramePTS = 1000000l / (long)sFPS ;
+                mImageYUVbytesize = mVideoSize.getWidth() * mVideoSize.getHeight() * 12 / 8 ;
+                //https://wiki.videolan.org/YUV
+
                 mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.YUV_420_888,5);
                 Surface imgSurface = mImgReader.getSurface() ;
                 surfaces.add(imgSurface);
@@ -421,7 +427,7 @@ public class Camera2VideoFragment extends Fragment
 
                         int inputBufferId = mMediaCodec.dequeueInputBuffer(0);
                         if (inputBufferId >= 0) {
-                            int sizeReturn = mMediaCodec.getInputBuffer(inputBufferId).remaining() ;
+                            // int sizeReturn = mMediaCodec.getInputBuffer(inputBufferId).remaining() ;
                             Image imgwrite = mMediaCodec.getInputImage(inputBufferId) ;
                             for( int i=0 ; i<imgwrite.getPlanes().length ; i++ ) {
                                 ByteBuffer buffer = img.getPlanes()[i].getBuffer();
@@ -430,9 +436,9 @@ public class Camera2VideoFragment extends Fragment
 
                                 imgwrite.getPlanes()[i].getBuffer().put(bytes) ;
                             }
-                            imgwrite.close();
-                            int PTS = mNbInputImg * (1 * 1000 * 1000) / (sFPS+1) ;
-                            mMediaCodec.queueInputBuffer(inputBufferId, 0, sizeReturn, PTS, 0);
+                            // imgwrite.close();
+                            long PTS = mNbInputImg * mImageFramePTS ;
+                            mMediaCodec.queueInputBuffer(inputBufferId, 0, mImageYUVbytesize, PTS, 0);
                             mNbInputImg++;
                         }
                         img.close();
