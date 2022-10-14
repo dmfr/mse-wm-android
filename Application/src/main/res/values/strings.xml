@@ -8,30 +8,23 @@
 
     <string name="peer_wsUrlBase">https://wsvideo.int.mirabel-sil.com:8080</string>
 
-    <string name="wssRecordUrl_extIpv6">https://wsvideo.int.mirabel-sil.com:8080/record</string>
-    <string name="wssRecordUrl_int">https://10-39-10-209.int.mirabel-sil.com:8080/record</string>
-
     <string-array name="videoResolutions_text">
-        <item>720p (1280x720)</item>
-        <item>1080p (1920x1080)</item>
+        <item>1280x720 (720p)</item>
+        <item>1920x1080 (1080p)</item>
     </string-array>
     <string-array name="videoResolutions_values">
-        <item>1280x720</item>
-        <item>1920x1080</item>
+        <item>720p</item>
+        <item>1080p</item>
     </string-array>
 
     <string-array name="videoProfiles_text">
-        <item>Constrained baseline</item>
         <item>Baseline</item>
         <item>Main</item>
-        <item>Extended</item>
         <item>High</item>
     </string-array>
     <string-array name="videoProfiles_values">
-        <item>constrained_baseline</item>
         <item>baseline</item>
         <item>main</item>
-        <item>extended</item>
         <item>high</item>
     </string-array>
 

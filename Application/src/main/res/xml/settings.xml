@@ -9,7 +9,7 @@
             android:defaultValue="Android client" />
 
         <EditTextPreference
-            android:key="peer_ws_UrlBase"
+            android:key="peer_wsUrlBase"
             android:title="Websocket URL"
             android:defaultValue="@string/peer_wsUrlBase" />
 

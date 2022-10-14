@@ -133,6 +133,8 @@ public class Camera2VideoFragment extends Fragment
     } ;
     private static int sFPS = 25 ;
 
+    private UtilPreferences mPrefs ;
+
     private AutoFitSurfaceView mSurfaceView;
     private FloatingActionButton mButtonVideo;
     private FloatingActionButton mButtonPrefs;
@@ -229,6 +231,7 @@ public class Camera2VideoFragment extends Fragment
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         okHttpClient = new OkHttpClient();
+        mPrefs = new UtilPreferences(getActivity()) ;
     }
 
     @Override
@@ -314,7 +317,7 @@ public class Camera2VideoFragment extends Fragment
             if (map == null) {
                 throw new RuntimeException("Cannot get available preview/video sizes");
             }
-            mVideoSize = chooseVideoSize(map.getOutputSizes(MediaCodec.class));
+            mVideoSize = mPrefs.getVideoResolution();
             Log.d("damsdebug", "VideoSize : "+mVideoSize.getWidth()+" x "+mVideoSize.getHeight());
 
             int orientation = getResources().getConfiguration().orientation;
@@ -529,9 +532,9 @@ public class Camera2VideoFragment extends Fragment
 
         MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
                 streamWidth, streamHeight);
-        format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, 4000000);
-        format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR);
+        format.setInteger(MediaFormat.KEY_PROFILE, mPrefs.getVideoProfile());
+        format.setInteger(MediaFormat.KEY_BIT_RATE, mPrefs.getVideoBitrate());
+        format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, sFPS);
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         format.setInteger(MediaFormat.KEY_LATENCY, 0);
@@ -597,7 +600,7 @@ public class Camera2VideoFragment extends Fragment
     private void setUpWebsocket() {
         closeWebsocket() ;
 
-        String wsUrl = getString(R.string.wssRecordUrl_extIpv6);
+        String wsUrl = mPrefs.getPeerWebsocketRecordUrl();
         wsRunning = wsError = false ;
         Request request = new Request.Builder().url(wsUrl).build();
         websocket = okHttpClient.newWebSocket(request, new VideoSocketListener());
