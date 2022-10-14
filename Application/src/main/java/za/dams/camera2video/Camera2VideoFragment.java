@@ -586,9 +586,11 @@ public class Camera2VideoFragment extends Fragment
             mEncoderThread = null ;
         }
         if( mImageThread != null ) {
+            mImgReader.setOnImageAvailableListener(null,null);
             mImageThread.quitSafely() ;
             mImageThread = null ;
             mImageHandler = null ;
+            mImgReader = null ;
         }
         if( mMediaCodec != null ) {
             mMediaCodec.stop() ;
