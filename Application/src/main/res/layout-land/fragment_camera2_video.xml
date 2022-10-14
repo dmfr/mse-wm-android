@@ -54,7 +54,28 @@
         android:layout_margin="32dp"
         app:srcCompat="@android:drawable/ic_menu_camera"
 
+        app:backgroundTint="@android:color/holo_orange_light"
+
         android:layout_gravity="center|end"
+
+        />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+
+        android:id="@+id/prefs"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+
+        android:layout_margin="16dp"
+        app:srcCompat="@android:drawable/ic_menu_preferences"
+
+        app:fabSize="mini"
+        app:backgroundTint="@android:color/darker_gray"
+
+        android:layout_gravity="start|top"
 
         />
 

@@ -1,0 +1,41 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory
+        android:title="Peer settings">
+
+        <EditTextPreference
+            android:key="peer_name"
+            android:title="Peer name"
+            android:defaultValue="Android client" />
+
+        <EditTextPreference
+            android:key="peer_ws_UrlBase"
+            android:title="Websocket URL"
+            android:defaultValue="@string/peer_wsUrlBase" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="Video settings">
+
+        <ListPreference
+            android:key="video_resolution"
+            android:title="Video resolution"
+            android:entries="@array/videoResolutions_text"
+            android:entryValues="@array/videoResolutions_values" />
+
+        <ListPreference
+            android:key="video_profile"
+            android:title="AVC Profile"
+            android:entries="@array/videoProfiles_text"
+            android:entryValues="@array/videoProfiles_values" />
+
+        <ListPreference
+            android:key="video_bitrate"
+            android:title="Bitrate"
+            android:entries="@array/videoBitrates_text"
+            android:entryValues="@array/videoBitrates_values" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

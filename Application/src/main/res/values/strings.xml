@@ -6,6 +6,50 @@
     <string name="permission_request">This sample needs permission for camera and audio recording.</string>
     <string name="camera_error">This device doesn\'t support Camera2 API.</string>
 
+    <string name="peer_wsUrlBase">https://wsvideo.int.mirabel-sil.com:8080</string>
+
     <string name="wssRecordUrl_extIpv6">https://wsvideo.int.mirabel-sil.com:8080/record</string>
     <string name="wssRecordUrl_int">https://10-39-10-209.int.mirabel-sil.com:8080/record</string>
+
+    <string-array name="videoResolutions_text">
+        <item>720p (1280x720)</item>
+        <item>1080p (1920x1080)</item>
+    </string-array>
+    <string-array name="videoResolutions_values">
+        <item>1280x720</item>
+        <item>1920x1080</item>
+    </string-array>
+
+    <string-array name="videoProfiles_text">
+        <item>Constrained baseline</item>
+        <item>Baseline</item>
+        <item>Main</item>
+        <item>Extended</item>
+        <item>High</item>
+    </string-array>
+    <string-array name="videoProfiles_values">
+        <item>constrained_baseline</item>
+        <item>baseline</item>
+        <item>main</item>
+        <item>extended</item>
+        <item>high</item>
+    </string-array>
+
+    <string-array name="videoBitrates_text">
+        <item>500 kb/s</item>
+        <item>1000 kb/s</item>
+        <item>2000 kb/s</item>
+        <item>4000 kb/s</item>
+        <item>8000 kb/s</item>
+    </string-array>
+    <string-array name="videoBitrates_values">
+        <item>500</item>
+        <item>1000</item>
+        <item>2000</item>
+        <item>4000</item>
+        <item>8000</item>
+    </string-array>
+
+
+
 </resources>

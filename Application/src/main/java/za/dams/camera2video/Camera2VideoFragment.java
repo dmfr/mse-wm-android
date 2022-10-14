@@ -23,6 +23,8 @@ import android.app.DialogFragment;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.pm.ActivityInfo;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
@@ -56,12 +58,13 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.io.File;
 import java.io.IOException;
@@ -131,7 +134,8 @@ public class Camera2VideoFragment extends Fragment
     private static int sFPS = 25 ;
 
     private AutoFitSurfaceView mSurfaceView;
-    private ImageButton mButtonVideo;
+    private FloatingActionButton mButtonVideo;
+    private FloatingActionButton mButtonPrefs;
 
     private CameraDevice mCameraDevice;
     private CameraCaptureSession mCaptureSession;
@@ -182,10 +186,17 @@ public class Camera2VideoFragment extends Fragment
         return null ;
     }
 
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         return inflater.inflate(R.layout.fragment_camera2_video, container, false);
+    }
+    @Override
+    public void onDestroyView() {
+        getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        super.onDestroyView();
     }
 
     @Override
@@ -207,8 +218,11 @@ public class Camera2VideoFragment extends Fragment
 
             }
         });
-        mButtonVideo = (ImageButton) view.findViewById(R.id.video);
+
+        mButtonVideo = (FloatingActionButton) view.findViewById(R.id.video);
         mButtonVideo.setOnClickListener(this);
+        mButtonPrefs = (FloatingActionButton) view.findViewById(R.id.prefs);
+        mButtonPrefs.setOnClickListener(this);
     }
 
     @Override
@@ -243,13 +257,10 @@ public class Camera2VideoFragment extends Fragment
                 }
                 break;
             }
-            case R.id.info: {
+            case R.id.prefs: {
                 Activity activity = getActivity();
-                if (null != activity) {
-                    new AlertDialog.Builder(activity)
-                            .setMessage(R.string.intro_message)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
+                if ((null != activity) && (activity instanceof CameraActivity)) {
+                    ((CameraActivity)activity).openPreferences();
                 }
                 break;
             }
@@ -676,18 +687,32 @@ public class Camera2VideoFragment extends Fragment
 
 
     private void updateUI() {
+        int colorGray = getResources().getColor(android.R.color.darker_gray) ;
+        int colorOrange = getResources().getColor(android.R.color.holo_orange_light) ;
+
         View recordCaption = getView().findViewById(R.id.record_caption) ;
         ImageView recordCaptionIcon = (ImageView)getView().findViewById(R.id.record_caption_icon) ;
         TextView recordCaptionText = (TextView)getView().findViewById(R.id.record_caption_text) ;
         if( mIsRecordingVideoPending ) {
+            mButtonPrefs.setVisibility(View.GONE);
+            mButtonVideo.setVisibility(View.GONE);
+
             recordCaptionIcon.setVisibility(View.INVISIBLE);
             recordCaptionText.setText("Preparing...") ;
             recordCaption.setVisibility(View.VISIBLE);
         } else if( mIsRecordingVideo ) {
+            mButtonPrefs.setVisibility(View.GONE);
+            mButtonVideo.setVisibility(View.VISIBLE);
+            ((FloatingActionButton)mButtonVideo).setBackgroundTintList(ColorStateList.valueOf(colorGray)) ;
+
             recordCaptionIcon.setVisibility(View.VISIBLE);
             recordCaptionText.setText("RECORD") ;
             recordCaption.setVisibility(View.VISIBLE);
         } else {
+            mButtonPrefs.setVisibility(View.VISIBLE);
+            mButtonVideo.setVisibility(View.VISIBLE);
+            ((FloatingActionButton)mButtonVideo).setBackgroundTintList(ColorStateList.valueOf(colorOrange)) ;
+
             recordCaption.setVisibility(View.GONE);
         }
     }

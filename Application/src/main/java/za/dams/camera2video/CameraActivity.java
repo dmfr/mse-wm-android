@@ -19,7 +19,6 @@ package za.dams.camera2video;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.widget.Toast;
@@ -40,15 +39,19 @@ public class CameraActivity extends Activity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_VIDEO_PERMISSIONS);
             return ;
         }
-
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-
         setContentView(R.layout.activity_camera);
         if (null == savedInstanceState) {
             getFragmentManager().beginTransaction()
                     .replace(R.id.container, Camera2VideoFragment.newInstance())
                     .commit();
         }
+    }
+
+    public void openPreferences() {
+        getFragmentManager().beginTransaction()
+                .addToBackStack("camera_preferences")
+                .replace(R.id.container, CameraPreferencesFragment.newInstance())
+                .commit();
     }
 
     private boolean hasPermissionsGranted(String[] permissions) {
