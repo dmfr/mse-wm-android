@@ -131,7 +131,7 @@ public class Camera2VideoFragment extends Fragment
             //new Size(1920,1080),
             new Size(1280,720)
     } ;
-    private static int sFPS = 25 ;
+    private static int sFPS = 30 ;
 
     private UtilPreferences mPrefs ;
 
@@ -409,7 +409,7 @@ public class Camera2VideoFragment extends Fragment
             closeCaptureSession();
 
             //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
-            CaptureRequest.Builder camRequestBuilder = mCameraDevice.createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_PREVIEW : CameraDevice.TEMPLATE_PREVIEW);
+            CaptureRequest.Builder camRequestBuilder = mCameraDevice.createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
 
             List<Surface> surfaces = new ArrayList<>();
 
@@ -476,7 +476,7 @@ public class Camera2VideoFragment extends Fragment
                             camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
                             camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(sFPS, sFPS));
                             camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                                    mIsRecordingVideoPending ? CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON : CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF );
+                                    mIsRecordingVideoPending ? CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF : CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF );
 
                             mBackgroundThread = new HandlerThread("CameraBackground");
                             mBackgroundThread.start();
