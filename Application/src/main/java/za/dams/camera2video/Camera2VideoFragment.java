@@ -588,6 +588,11 @@ public class Camera2VideoFragment extends Fragment
         if( mImageThread != null ) {
             mImgReader.setOnImageAvailableListener(null,null);
             mImageThread.quitSafely() ;
+            try {
+                mImageThread.join();
+            } catch( Exception e ) {
+                e.printStackTrace();
+            }
             mImageThread = null ;
             mImageHandler = null ;
             mImgReader = null ;
@@ -682,7 +687,7 @@ public class Camera2VideoFragment extends Fragment
         utilKeepScreenOn(false);
         mIsRecordingVideoPending = false ;
         mIsRecordingVideo = false ;
-        updateUI() ;
+        updateUI(true) ;
 
         // Stop recording
         closeCaptureSession();
@@ -696,6 +701,13 @@ public class Camera2VideoFragment extends Fragment
 
 
     private void updateUI() {
+        updateUI(false) ;
+    }
+    private void updateUI(boolean isRecordingStop) {
+        if( Looper.getMainLooper() != Looper.myLooper() ) {
+            Log.e(TAG,"Not UI Thread !") ;
+            return ;
+        }
         int colorGray = getResources().getColor(android.R.color.darker_gray) ;
         int colorOrange = getResources().getColor(android.R.color.holo_orange_light) ;
 
@@ -717,6 +729,17 @@ public class Camera2VideoFragment extends Fragment
             recordCaptionIcon.setVisibility(View.VISIBLE);
             recordCaptionText.setText("RECORD") ;
             recordCaption.setVisibility(View.VISIBLE);
+        } else if( isRecordingStop ) {
+            mButtonPrefs.setVisibility(View.GONE);
+            mButtonVideo.setVisibility(View.GONE);
+            recordCaption.setVisibility(View.GONE);
+
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    updateUI();
+                }
+            },1500) ;
         } else {
             mButtonPrefs.setVisibility(View.VISIBLE);
             mButtonVideo.setVisibility(View.VISIBLE);
