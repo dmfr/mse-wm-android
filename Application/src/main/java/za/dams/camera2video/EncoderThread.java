@@ -39,28 +39,16 @@ public class EncoderThread extends Thread {
             for(;;) {
                 if( !isRunning ) break;
                 int status = mediaCodec.dequeueOutputBuffer(mBufferInfo, mTimeoutUsec);
-                if (status == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                    if (!isRunning) break;
-                } else if (status >= 0) {
+                if (status >= 0) {
                     // encoded sample
                     ByteBuffer data = mediaCodec.getOutputBuffer(status);
                     if (data != null) {
-                        final int endOfStream = mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM;
-                        // pass to whoever listens to
-                        //if (endOfStream == 0) onEncodedSample(mBufferInfo, data);
-
-                        //Log.e("damsdebug", "buffer received");
                         bs = ByteString.of(data);
-
-
                         // releasing buffer is important
                         mediaCodec.releaseOutputBuffer(status, false);
 
-
-
+                        //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
                         webSocket.send(bs);
-
-                        if (endOfStream == MediaCodec.BUFFER_FLAG_END_OF_STREAM) break;
                     }
                 }
             }
@@ -69,6 +57,4 @@ public class EncoderThread extends Thread {
         public void terminate() {
             isRunning=false ;
         }
-
-
 }

@@ -610,6 +610,10 @@ public class Camera2VideoFragment extends Fragment
     }
     private void closeWebsocket() {
         if( websocket != null ) {
+            if( websocket.queueSize() > 0l ) {
+                websocket.cancel();
+                return;
+            }
             websocket.close(1000, null);
         }
     }
