@@ -776,6 +776,57 @@ public class Camera2VideoFragment extends Fragment
         }
     }
 
+    private static class EncoderThread extends Thread {
+        private boolean isRunning = true ;
+        MediaCodec.BufferInfo mBufferInfo;
+        final long mTimeoutUsec;
+
+        private MediaCodec mediaCodec ;
+        private WebSocket webSocket ;
+
+        ByteString bs ;
+
+        EncoderThread( MediaCodec mediaCodec, WebSocket webSocket ) {
+            this.mediaCodec=mediaCodec;
+            this.webSocket=webSocket;
+
+            mBufferInfo = new MediaCodec.BufferInfo();
+            mTimeoutUsec = 10000l;
+        }
+
+        @Override
+        public void run() {
+            super.run();
+            while( isRunning ) {
+                encode() ;
+            }
+        }
+
+
+        private void encode() {
+            for(;;) {
+                if( !isRunning ) break;
+                int status = mediaCodec.dequeueOutputBuffer(mBufferInfo, mTimeoutUsec);
+                if (status >= 0) {
+                    // encoded sample
+                    ByteBuffer data = mediaCodec.getOutputBuffer(status);
+                    if (data != null) {
+                        bs = ByteString.of(data);
+                        // releasing buffer is important
+                        mediaCodec.releaseOutputBuffer(status, false);
+
+                        //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
+                        webSocket.send(bs);
+                    }
+                }
+            }
+        }
+
+        public void terminate() {
+            isRunning=false ;
+        }
+    }
+
     void utilKeepScreenOn( boolean torf ) {
         if( torf ) {
             getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
