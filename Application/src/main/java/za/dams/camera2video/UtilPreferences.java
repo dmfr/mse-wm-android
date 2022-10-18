@@ -59,4 +59,11 @@ public class UtilPreferences {
         }
         return wsWebsocketUrlBase+"/record" ;
     }
+    public String getPeerWebsocketPlayUrl(){
+        String wsWebsocketUrlBase = mSharedPreferences.getString("peer_wsUrlBase", mContext.getString(R.string.peer_wsUrlBase) ) ;
+        while( wsWebsocketUrlBase.endsWith("/") ) {
+            wsWebsocketUrlBase = wsWebsocketUrlBase.substring(0,wsWebsocketUrlBase.length()-1) ;
+        }
+        return wsWebsocketUrlBase+"/replay" ;
+    }
 }
