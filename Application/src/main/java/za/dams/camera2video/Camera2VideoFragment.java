@@ -118,19 +118,10 @@ public class Camera2VideoFragment extends Fragment
     }
 
 
-    private static final int SENSOR_ORIENTATION_DEFAULT_DEGREES = 90;
-    private static final int SENSOR_ORIENTATION_INVERSE_DEGREES = 270;
-    private static final SparseIntArray DEFAULT_ORIENTATIONS = new SparseIntArray();
-    private static final SparseIntArray INVERSE_ORIENTATIONS = new SparseIntArray();
-
     private static final String TAG = "Camera2VideoFragment";
     private static final String FRAGMENT_DIALOG = "dialog";
 
 
-    private static Size[] sSizes = new Size[]{
-            //new Size(1920,1080),
-            new Size(1280,720)
-    } ;
     private static int sFPS = 30 ;
 
     private UtilPreferences mPrefs ;
@@ -175,17 +166,6 @@ public class Camera2VideoFragment extends Fragment
 
     public static Camera2VideoFragment newInstance() {
         return new Camera2VideoFragment();
-    }
-
-    private static Size chooseVideoSize(Size[] choices) {
-        for( Size requestSize : sSizes ) {
-            for (Size size : choices) {
-                if( size.equals(requestSize) ) {
-                    return size ;
-                }
-            }
-        }
-        return null ;
     }
 
 
@@ -269,13 +249,6 @@ public class Camera2VideoFragment extends Fragment
             }
         }
     }
-
-    /**
-     * Gets whether you should show UI with rationale for requesting permissions.
-     *
-     * @param permissions The permissions your app wants to request.
-     * @return Whether you can show permission rationale UI.
-     */
 
 
     /**
@@ -527,9 +500,6 @@ public class Camera2VideoFragment extends Fragment
 
 
         mMediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
-//            MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
-//                    width, height);
-
         MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
                 streamWidth, streamHeight);
         format.setInteger(MediaFormat.KEY_PROFILE, mPrefs.getVideoProfile());
@@ -543,38 +513,7 @@ public class Camera2VideoFragment extends Fragment
         // Set the encoder priority to realtime.
         format.setInteger(MediaFormat.KEY_PRIORITY, 0x00);
         mMediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-
-
-       /*
-        final Activity activity = getActivity();
-        if (null == activity) {
-            return;
-        }
-        //mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        if (mNextVideoAbsolutePath == null || mNextVideoAbsolutePath.isEmpty()) {
-            mNextVideoAbsolutePath = getVideoFilePath(getActivity());
-        }
-        mMediaRecorder.setOutputFile(mNextVideoAbsolutePath);
-        mMediaRecorder.setVideoEncodingBitRate(10000000);
-        mMediaRecorder.setVideoFrameRate(30);
-        mMediaRecorder.setVideoSize(mVideoSize.getWidth(), mVideoSize.getHeight());
-        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        //mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
-        switch (mSensorOrientation) {
-            case SENSOR_ORIENTATION_DEFAULT_DEGREES:
-                mMediaRecorder.setOrientationHint(DEFAULT_ORIENTATIONS.get(rotation));
-                break;
-            case SENSOR_ORIENTATION_INVERSE_DEGREES:
-                mMediaRecorder.setOrientationHint(INVERSE_ORIENTATIONS.get(rotation));
-                break;
-        }
-        mMediaRecorder.prepare();
-         */
-        //mMediaCodec.start() ;
-    }
+   }
     private void destroyMediaCodec() {
         if( mEncoderThread != null ) {
             mEncoderThread.terminate();
@@ -621,12 +560,6 @@ public class Camera2VideoFragment extends Fragment
             }
             websocket.close(1000, null);
         }
-    }
-
-    private String getVideoFilePath(Context context) {
-        final File dir = context.getExternalFilesDir(null);
-        return (dir == null ? "" : (dir.getAbsolutePath() + "/"))
-                + System.currentTimeMillis() + ".mp4";
     }
 
     private void startRecordingVideo() {
@@ -677,7 +610,6 @@ public class Camera2VideoFragment extends Fragment
             e.printStackTrace();
         }
     }
-
 
     private void stopRecordingVideo(){
         stopRecordingVideo(false);
