@@ -28,7 +28,7 @@ public class CameraPreferencesFragment extends PreferenceFragment {
     }
     @Override
     public void onDestroyView() {
-        getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        //getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         super.onDestroyView();
     }
 
