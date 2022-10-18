@@ -18,14 +18,18 @@ package za.dams.camera2video;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 
 public class CameraActivity extends Activity {
+
+    WifiManager.WifiLock mWifiLock ;
 
     private static final int REQUEST_VIDEO_PERMISSIONS = 1;
     private static final String[] VIDEO_PERMISSIONS = {
@@ -35,6 +39,9 @@ public class CameraActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mWifiLock = ((WifiManager)getSystemService(Context.WIFI_SERVICE)).createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY,"za.dams.camera2video") ;
+
         if( !hasPermissionsGranted(VIDEO_PERMISSIONS)) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_VIDEO_PERMISSIONS);
             return ;
