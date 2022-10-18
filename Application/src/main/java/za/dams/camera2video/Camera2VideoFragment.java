@@ -129,6 +129,7 @@ public class Camera2VideoFragment extends Fragment
     private AutoFitSurfaceView mSurfaceView;
     private FloatingActionButton mButtonVideo;
     private FloatingActionButton mButtonPrefs;
+    private FloatingActionButton mButtonPlay;
 
     private CameraDevice mCameraDevice;
     private CameraCaptureSession mCaptureSession;
@@ -205,6 +206,8 @@ public class Camera2VideoFragment extends Fragment
         mButtonVideo.setOnClickListener(this);
         mButtonPrefs = (FloatingActionButton) view.findViewById(R.id.prefs);
         mButtonPrefs.setOnClickListener(this);
+        mButtonPlay = (FloatingActionButton) view.findViewById(R.id.play);
+        mButtonPlay.setOnClickListener(this);
     }
 
     @Override
@@ -244,6 +247,13 @@ public class Camera2VideoFragment extends Fragment
                 Activity activity = getActivity();
                 if ((null != activity) && (activity instanceof CameraActivity)) {
                     ((CameraActivity)activity).openPreferences();
+                }
+                break;
+            }
+            case R.id.play: {
+                Activity activity = getActivity();
+                if ((null != activity) && (activity instanceof CameraActivity)) {
+                    ((CameraActivity)activity).openPlayer();
                 }
                 break;
             }
@@ -648,6 +658,7 @@ public class Camera2VideoFragment extends Fragment
         TextView recordCaptionText = (TextView)getView().findViewById(R.id.record_caption_text) ;
         if( mIsRecordingVideoPending ) {
             mButtonPrefs.setVisibility(View.GONE);
+            mButtonPlay.setVisibility(View.GONE);
             mButtonVideo.setVisibility(View.GONE);
 
             recordCaptionIcon.setVisibility(View.INVISIBLE);
@@ -655,6 +666,7 @@ public class Camera2VideoFragment extends Fragment
             recordCaption.setVisibility(View.VISIBLE);
         } else if( mIsRecordingVideo ) {
             mButtonPrefs.setVisibility(View.GONE);
+            mButtonPlay.setVisibility(View.GONE);
             mButtonVideo.setVisibility(View.VISIBLE);
             ((FloatingActionButton)mButtonVideo).setBackgroundTintList(ColorStateList.valueOf(colorGray)) ;
 
@@ -663,6 +675,7 @@ public class Camera2VideoFragment extends Fragment
             recordCaption.setVisibility(View.VISIBLE);
         } else if( isRecordingStop ) {
             mButtonPrefs.setVisibility(View.GONE);
+            mButtonPlay.setVisibility(View.GONE);
             mButtonVideo.setVisibility(View.GONE);
             recordCaption.setVisibility(View.GONE);
 
@@ -674,6 +687,7 @@ public class Camera2VideoFragment extends Fragment
             },1500) ;
         } else {
             mButtonPrefs.setVisibility(View.VISIBLE);
+            mButtonPlay.setVisibility(View.VISIBLE);
             mButtonVideo.setVisibility(View.VISIBLE);
             ((FloatingActionButton)mButtonVideo).setBackgroundTintList(ColorStateList.valueOf(colorOrange)) ;
 

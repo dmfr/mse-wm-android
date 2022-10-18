@@ -54,6 +54,13 @@ public class CameraActivity extends Activity {
                 .commit();
     }
 
+    public void openPlayer() {
+        getFragmentManager().beginTransaction()
+                .addToBackStack("play_video")
+                .replace(R.id.container, PlayVideoFragment.newInstance())
+                .commit();
+    }
+
     private boolean hasPermissionsGranted(String[] permissions) {
         for (String permission : permissions) {
             if (ActivityCompat.checkSelfPermission(this,permission)
