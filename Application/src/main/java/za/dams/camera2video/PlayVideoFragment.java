@@ -5,6 +5,8 @@ import android.content.pm.ActivityInfo;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PersistableBundle;
 import android.util.Log;
 import android.util.Size;
@@ -13,6 +15,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -99,11 +102,13 @@ public class PlayVideoFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        utilKeepScreenOn(true);
         //startPlaying();
     }
     @Override
     public void onPause() {
         stopPlaying();
+        utilKeepScreenOn(false);
         super.onPause();
     }
 
@@ -232,7 +237,6 @@ public class PlayVideoFragment extends Fragment {
     }
 
 
-
     private void onFrameReceived( byte[] data ) {
         if( !mMediaCodecStarted ) {
             return ;
@@ -262,6 +266,12 @@ public class PlayVideoFragment extends Fragment {
         }
         if( !mMediaCodecConfigured ) {
             mMediaCodecConfigured = true ;
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    getView().findViewById(R.id.wait).setVisibility(View.GONE);
+                }
+            });
         }
     }
 
@@ -388,6 +398,14 @@ public class PlayVideoFragment extends Fragment {
                 }
             }
             return mask ;
+        }
+    }
+
+    void utilKeepScreenOn( boolean torf ) {
+        if( torf ) {
+            getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
     }
 }
