@@ -2,14 +2,22 @@ package za.dams.camera2video;
 
 import android.app.Fragment;
 import android.content.pm.ActivityInfo;
+import android.media.MediaCodec;
+import android.media.MediaFormat;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.util.Log;
+import android.util.Size;
 import android.view.LayoutInflater;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +31,16 @@ import okio.ByteString;
 public class PlayVideoFragment extends Fragment {
 
     private AutoFitSurfaceView mSurfaceView;
+
+    private MediaCodec mMediaCodec ;
+    private boolean mMediaCodecStarted = false ;
+    private boolean mMediaCodecConfigured = false ;
+    private DecoderThread mDecoderThread ;
+
+    private static Size sSize = new Size(1920,1080) ;
+    private static int sFPS = 30 ;
+    private long mImageFramePTS ;
+    private int mNbInputImg ;
 
     public static PlayVideoFragment newInstance() {
         return new PlayVideoFragment();
@@ -54,6 +72,23 @@ public class PlayVideoFragment extends Fragment {
         view.findViewById(R.id.play).setVisibility(View.GONE);
 
         view.findViewById(R.id.wait).setVisibility(View.VISIBLE);
+
+        mSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(@NonNull SurfaceHolder holder) {
+                startPlaying();
+            }
+
+            @Override
+            public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width, int height) {
+
+            }
+
+            @Override
+            public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+
+            }
+        });
     }
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -64,7 +99,7 @@ public class PlayVideoFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        startPlaying();
+        //startPlaying();
     }
     @Override
     public void onPause() {
@@ -91,7 +126,7 @@ public class PlayVideoFragment extends Fragment {
         }
         @Override
         public void onMessage(WebSocket webSocket, ByteString bytes) {
-            Log.w("DAMSDEBUG","Receiving bytes : " + bytes.size());
+            //Log.w("DAMSDEBUG","Receiving bytes : " + bytes.size());
             PlayVideoFragment.this.onFrameReceived(bytes.toByteArray());
         }
         @Override
@@ -114,6 +149,29 @@ public class PlayVideoFragment extends Fragment {
     private void startPlaying() {
         closeWebsocket() ;
 
+        mMediaCodecConfigured = false ;
+        mMediaCodecStarted = false ;
+
+        mSurfaceView.setAspectRatio(sSize.getWidth(),sSize.getHeight());
+
+        mImageFramePTS = 1000000l / (long)(sFPS) ;
+        mNbInputImg = 0 ;
+
+        MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, sSize.getWidth(), sSize.getHeight());
+        format.setInteger(MediaFormat.KEY_LOW_LATENCY,1);
+        try {
+            mMediaCodec = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
+            mMediaCodec.configure(format, mSurfaceView.getHolder().getSurface(), null, 0);
+            mMediaCodec.start() ;
+
+            mDecoderThread = new PlayVideoFragment.DecoderThread(mMediaCodec);
+            mDecoderThread.start();
+
+            mMediaCodecStarted = true ;
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -133,12 +191,28 @@ public class PlayVideoFragment extends Fragment {
                     }
                 } catch(Exception e) {
                     Log.e("damsdebug",e.getMessage()) ;
+                    stopPlaying();
                 }
             }
         }).start();
     }
     private void stopPlaying() {
         closeWebsocket() ;
+
+        if( mDecoderThread != null ) {
+            mDecoderThread.terminate();
+            try {
+                mDecoderThread.join();
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
+            mDecoderThread = null ;
+        }
+        if( mMediaCodec != null ) {
+            mMediaCodecStarted = false;
+            mMediaCodec.stop();
+            mMediaCodec = null;
+        }
     }
     private void setUpWebsocket() {
         closeWebsocket() ;
@@ -160,38 +234,82 @@ public class PlayVideoFragment extends Fragment {
 
 
     private void onFrameReceived( byte[] data ) {
-        int typesMask = H264helper.getNALtypes(data) ;
-        /*
-        String str = "" ;
-        if ((typesMask & H264helper.TYPE_IDR) == H264helper.TYPE_IDR)
-        {
-            str+= "IDR"+" " ;
+        if( !mMediaCodecStarted ) {
+            return ;
         }
-        if ((typesMask & H264helper.TYPE_NDR) == H264helper.TYPE_NDR)
-        {
-            str+= "NDR"+" " ;
+        if( !mMediaCodecConfigured ) {
+            int typesMask = H264helper.getNALtypes(data);
+            int maskToCheck = 0;
+            maskToCheck |= H264helper.TYPE_SPS;
+            maskToCheck |= H264helper.TYPE_PPS;
+            if ((typesMask & maskToCheck) == maskToCheck) {
+                // ok to initialize
+            } else {
+                return ;
+            }
         }
-        if ((typesMask & H264helper.TYPE_SPS) == H264helper.TYPE_SPS)
-        {
-            str+= "SPS"+" " ;
+
+        int inputIndex = mMediaCodec.dequeueInputBuffer(-1);
+        if (inputIndex >= 0) {
+            ByteBuffer buffer = mMediaCodec.getInputBuffer(inputIndex);
+            buffer.put(data);
+
+            long PTS = mNbInputImg * mImageFramePTS ;
+            //PTS = 0 ; // HACK to test ?
+            mMediaCodec.queueInputBuffer(inputIndex, 0, data.length, PTS,
+                    !mMediaCodecConfigured ? MediaCodec.BUFFER_FLAG_CODEC_CONFIG & MediaCodec.BUFFER_FLAG_KEY_FRAME : 0);
+            mNbInputImg++ ;
         }
-        if ((typesMask & H264helper.TYPE_PPS) == H264helper.TYPE_PPS)
-        {
-            str+= "PPS"+" " ;
-        }
-        Log.e("DAMSDEBUG","Mask is "+str );
-         */
-        int maskToCheck = 0 ;
-        maskToCheck |= H264helper.TYPE_SPS ;
-        maskToCheck |= H264helper.TYPE_PPS ;
-        if( (typesMask & maskToCheck) == maskToCheck ) {
-            Log.e("DAMSDEBUG","Initialize !!!" );
+        if( !mMediaCodecConfigured ) {
+            mMediaCodecConfigured = true ;
         }
     }
 
 
 
 
+    private static class DecoderThread extends Thread {
+        private boolean isRunning = true ;
+        MediaCodec.BufferInfo mBufferInfo;
+        final long mTimeoutUsec;
+
+        private MediaCodec mediaCodec ;
+
+        DecoderThread( MediaCodec mediaCodec ) {
+            this.mediaCodec=mediaCodec;
+
+            mBufferInfo = new MediaCodec.BufferInfo();
+            mTimeoutUsec = 10000l;
+        }
+
+        @Override
+        public void run() {
+            super.run();
+            while( isRunning ) {
+                decode() ;
+            }
+        }
+
+
+        private void decode() {
+            for(;;) {
+                if( !isRunning ) break;
+                int status = mediaCodec.dequeueOutputBuffer(mBufferInfo, mTimeoutUsec);
+                if (status >= 0) {
+                    // encoded sample
+                    ByteBuffer data = mediaCodec.getOutputBuffer(status);
+                    if (data != null) {
+                        mediaCodec.releaseOutputBuffer(status, true);
+                        //Log.w("DAMSDEBUG","Released frame");
+                    }
+                }
+            }
+        }
+
+        public void terminate() {
+            isRunning=false ;
+        }
+    }
 
     private static class H264helper {
         static final public int TYPE_PPS = 1 ;
