@@ -7,6 +7,7 @@ import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.os.PersistableBundle;
 import android.util.Log;
 import android.util.Size;
@@ -38,7 +39,8 @@ public class PlayVideoFragment extends Fragment {
     private MediaCodec mMediaCodec ;
     private boolean mMediaCodecStarted = false ;
     private boolean mMediaCodecConfigured = false ;
-    private DecoderThread mDecoderThread ;
+    private DecoderInputThread mDecoderInputThread ;
+    private DecoderOutputThread mDecoderOutputThread ;
 
     private static Size sSize = new Size(1920,1080) ;
     private static int sFPS = 30 ;
@@ -169,8 +171,11 @@ public class PlayVideoFragment extends Fragment {
             mMediaCodec.configure(format, mSurfaceView.getHolder().getSurface(), null, 0);
             mMediaCodec.start() ;
 
-            mDecoderThread = new PlayVideoFragment.DecoderThread(mMediaCodec);
-            mDecoderThread.start();
+            mDecoderOutputThread = new DecoderOutputThread(mMediaCodec);
+            mDecoderOutputThread.start();
+
+            mDecoderInputThread = new DecoderInputThread(mMediaCodec,sFPS);
+            mDecoderInputThread.start();
 
             mMediaCodecStarted = true ;
         } catch(Exception e) {
@@ -204,14 +209,23 @@ public class PlayVideoFragment extends Fragment {
     private void stopPlaying() {
         closeWebsocket() ;
 
-        if( mDecoderThread != null ) {
-            mDecoderThread.terminate();
+        if( mDecoderInputThread != null ) {
+            mDecoderInputThread.terminate() ;
             try {
-                mDecoderThread.join();
+                mDecoderInputThread.join();
             } catch(Exception e) {
                 e.printStackTrace();
             }
-            mDecoderThread = null ;
+            mDecoderInputThread = null ;
+        }
+        if( mDecoderOutputThread != null ) {
+            mDecoderOutputThread.terminate();
+            try {
+                mDecoderOutputThread.join();
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
+            mDecoderOutputThread = null ;
         }
         if( mMediaCodec != null ) {
             mMediaCodecStarted = false;
@@ -241,29 +255,9 @@ public class PlayVideoFragment extends Fragment {
         if( !mMediaCodecStarted ) {
             return ;
         }
-        if( !mMediaCodecConfigured ) {
-            int typesMask = H264helper.getNALtypes(data);
-            int maskToCheck = 0;
-            maskToCheck |= H264helper.TYPE_SPS;
-            maskToCheck |= H264helper.TYPE_PPS;
-            if ((typesMask & maskToCheck) == maskToCheck) {
-                // ok to initialize
-            } else {
-                return ;
-            }
-        }
 
-        int inputIndex = mMediaCodec.dequeueInputBuffer(-1);
-        if (inputIndex >= 0) {
-            ByteBuffer buffer = mMediaCodec.getInputBuffer(inputIndex);
-            buffer.put(data);
+        mDecoderInputThread.pushData(data);
 
-            long PTS = mNbInputImg * mImageFramePTS ;
-            //PTS = 0 ; // HACK to test ?
-            mMediaCodec.queueInputBuffer(inputIndex, 0, data.length, PTS,
-                    !mMediaCodecConfigured ? MediaCodec.BUFFER_FLAG_CODEC_CONFIG & MediaCodec.BUFFER_FLAG_KEY_FRAME : 0);
-            mNbInputImg++ ;
-        }
         if( !mMediaCodecConfigured ) {
             mMediaCodecConfigured = true ;
             new Handler(Looper.getMainLooper()).post(new Runnable() {
@@ -277,15 +271,117 @@ public class PlayVideoFragment extends Fragment {
 
 
 
+    private static class DecoderInputThread extends Thread {
+        public static final int POST_FRAME = 1;
+        public static final int POST_QUIT = 9;
 
-    private static class DecoderThread extends Thread {
+        private Handler mLocalHandler;
+        private Looper mLocalLooper ;
+
+        private MediaCodec mediaCodec ;
+        private boolean mediaCodecConfigured ;
+
+        private long mImageFramePTS ;
+        private int mImageCnt ;
+
+        private byte[] inputData ;
+
+        public DecoderInputThread( MediaCodec mediaCodec ) {
+            this(mediaCodec,0);
+        }
+        public DecoderInputThread( MediaCodec mediaCodec, int FPS ) {
+            this.mediaCodec = mediaCodec ;
+            this.mediaCodecConfigured = false ;
+
+            if( FPS > 0 ) {
+                mImageFramePTS = 1000000l / (long) (FPS);
+            } else {
+                mImageFramePTS = 0 ;
+            }
+        }
+
+        public void pushData( byte[] b ) {
+            /*
+            if( Looper.myLooper() != mLocalLooper ) {
+                Log.e("damsdebug", "posted from another thread");
+            }
+             */
+            inputData = b ;
+            mLocalHandler.sendEmptyMessage(POST_FRAME) ;
+        }
+        public void terminate() {
+            /*
+            if( Looper.myLooper() != mLocalLooper ) {
+                Log.e("damsdebug", "posted from another thread");
+            }
+             */
+            mLocalHandler.sendEmptyMessage(POST_QUIT) ;
+        }
+
+        @Override
+        public void run(){
+            Looper.prepare();
+            mLocalLooper = Looper.myLooper() ;
+            mLocalHandler = new Handler(Looper.myLooper()) {
+                public void handleMessage(Message msg) {
+                    // Act on the message received from my UI thread doing my stuff
+                    if( msg.what == POST_FRAME ) {
+                        /*
+                        Log.e("damsdebug", "new packet on DecoderInputThread");
+                        if (Looper.myLooper() == mLocalLooper) {
+                            Log.e("damsdebug", "i am on DecoderInputThread");
+                            pushToDecoder();
+                        }
+                         */
+                        pushToDecoder();
+                    } else if( msg.what == POST_QUIT ) {
+                        Looper.myLooper().quitSafely();
+                    }
+                }
+            };
+            Looper.loop();
+        }
+
+        private void pushToDecoder() {
+            byte[] data = inputData ;
+            inputData = null ;
+
+            if( !mediaCodecConfigured ) {
+                int typesMask = H264helper.getNALtypes(data);
+                int maskToCheck = 0;
+                maskToCheck |= H264helper.TYPE_SPS;
+                maskToCheck |= H264helper.TYPE_PPS;
+                if ((typesMask & maskToCheck) == maskToCheck) {
+                    // ok to initialize
+                } else {
+                    return ;
+                }
+            }
+
+            int inputIndex = mediaCodec.dequeueInputBuffer(-1);
+            if (inputIndex >= 0) {
+                ByteBuffer buffer = mediaCodec.getInputBuffer(inputIndex);
+                buffer.put(data);
+
+                long PTS = mImageCnt * mImageFramePTS ;
+                mediaCodec.queueInputBuffer(inputIndex, 0, data.length, PTS,
+                        !mediaCodecConfigured ? MediaCodec.BUFFER_FLAG_CODEC_CONFIG & MediaCodec.BUFFER_FLAG_KEY_FRAME : 0);
+                mImageCnt++ ;
+            }
+            if( !mediaCodecConfigured ) {
+                mediaCodecConfigured = true ;
+            }
+
+        }
+    }
+    private static class DecoderOutputThread extends Thread {
         private boolean isRunning = true ;
         MediaCodec.BufferInfo mBufferInfo;
         final long mTimeoutUsec;
 
         private MediaCodec mediaCodec ;
 
-        DecoderThread( MediaCodec mediaCodec ) {
+        DecoderOutputThread( MediaCodec mediaCodec ) {
             this.mediaCodec=mediaCodec;
 
             mBufferInfo = new MediaCodec.BufferInfo();
