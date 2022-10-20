@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import okhttp3.OkHttpClient;
@@ -286,6 +287,8 @@ public class PlayVideoFragment extends Fragment {
 
         private byte[] inputData ;
 
+        // TODO : try ArrayDeque
+
         public DecoderInputThread( MediaCodec mediaCodec ) {
             this(mediaCodec,0);
         }
@@ -306,7 +309,12 @@ public class PlayVideoFragment extends Fragment {
                 Log.e("damsdebug", "posted from another thread");
             }
              */
+            if( inputData != null ) {
+                Log.e("damsdebug", "DecoderInputThread COLLISION");
+                return ;
+            }
             inputData = b ;
+            //inputData = Arrays.copyOf(b, b.length);
             mLocalHandler.sendEmptyMessage(POST_FRAME) ;
         }
         public void terminate() {
@@ -344,8 +352,6 @@ public class PlayVideoFragment extends Fragment {
 
         private void pushToDecoder() {
             byte[] data = inputData ;
-            inputData = null ;
-
             if( !mediaCodecConfigured ) {
                 int typesMask = H264helper.getNALtypes(data);
                 int maskToCheck = 0;
@@ -371,7 +377,7 @@ public class PlayVideoFragment extends Fragment {
             if( !mediaCodecConfigured ) {
                 mediaCodecConfigured = true ;
             }
-
+            inputData = null ;
         }
     }
     private static class DecoderOutputThread extends Thread {
