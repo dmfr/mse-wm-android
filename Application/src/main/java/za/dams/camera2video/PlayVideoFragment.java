@@ -173,7 +173,9 @@ public class PlayVideoFragment extends Fragment {
             mMediaCodec.configure(format, mSurfaceView.getHolder().getSurface(), null, 0);
             mMediaCodec.start() ;
 
-            mDecoderOutputThread = new DecoderOutputThread(mMediaCodec);
+            // Test, buffer 1s latency
+            boolean debug1sLatency = false ;
+            mDecoderOutputThread = new DecoderOutputThread(mMediaCodec,sFPS, (debug1sLatency ? 1000 : 0));
             mDecoderOutputThread.start();
 
             mDecoderInputThread = new DecoderInputThread(mMediaCodec,sFPS);
@@ -262,6 +264,7 @@ public class PlayVideoFragment extends Fragment {
 
         if( !mMediaCodecConfigured ) {
             mMediaCodecConfigured = true ;
+            mDecoderOutputThread.setStartPTS();
             new Handler(Looper.getMainLooper()).post(new Runnable() {
                 @Override
                 public void run() {
@@ -378,11 +381,32 @@ public class PlayVideoFragment extends Fragment {
 
         private MediaCodec mediaCodec ;
 
+        private long mImageFramePTS ;
+        private int mImageCnt ;
+        private long mStartTs ;
+        private long mBufferMs ;
+
+
         DecoderOutputThread( MediaCodec mediaCodec ) {
+            this(mediaCodec,0,0) ;
+        }
+        DecoderOutputThread( MediaCodec mediaCodec, int FPS, long bufferMs ) {
             this.mediaCodec=mediaCodec;
 
             mBufferInfo = new MediaCodec.BufferInfo();
             mTimeoutUsec = 10000l;
+
+            mImageCnt = 0 ;
+            if( (FPS > 0) && (bufferMs>0) ) {
+                mImageFramePTS = 1000l / (long) (FPS);
+                mBufferMs = bufferMs ;
+            } else {
+                mImageFramePTS = 0 ;
+                mBufferMs = 0 ;
+            }
+        }
+        public void setStartPTS() {
+            mStartTs = System.currentTimeMillis() ;
         }
 
         @Override
@@ -397,12 +421,28 @@ public class PlayVideoFragment extends Fragment {
         private void decode() {
             for(;;) {
                 if( !isRunning ) break;
+
+                // simple clock
+                // https://github.com/cedricfung/MediaCodecDemo
+                if( (mImageFramePTS > 0) && (mBufferMs>0) ) {
+                    long currentTs = ((long) mImageCnt * mImageFramePTS) + mStartTs + mBufferMs;
+                    if (currentTs > System.currentTimeMillis()) {
+                        try {
+                            Thread.sleep(10);
+                        } catch (Exception e) {
+
+                        }
+                        continue;
+                    }
+                }
+
                 int status = mediaCodec.dequeueOutputBuffer(mBufferInfo, mTimeoutUsec);
                 if (status >= 0) {
                     // encoded sample
                     ByteBuffer data = mediaCodec.getOutputBuffer(status);
                     if (data != null) {
                         mediaCodec.releaseOutputBuffer(status, true);
+                        mImageCnt++ ;
                         //Log.w("DAMSDEBUG","Released frame");
                     }
                 }
