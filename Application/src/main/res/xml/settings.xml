@@ -38,4 +38,13 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:title="Player settings">
+
+        <CheckBoxPreference
+            android:key="debug_playBuffer"
+            android:title="Debug add 100ms buffer"/>
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

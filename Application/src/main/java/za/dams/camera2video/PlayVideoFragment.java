@@ -174,8 +174,8 @@ public class PlayVideoFragment extends Fragment {
             mMediaCodec.start() ;
 
             // Test, buffer 1s latency
-            boolean debug1sLatency = false ;
-            mDecoderOutputThread = new DecoderOutputThread(mMediaCodec,sFPS, (debug1sLatency ? 1000 : 0));
+            boolean debug1sLatency = mPrefs.getDebugPlaybuffer() ;
+            mDecoderOutputThread = new DecoderOutputThread(mMediaCodec,sFPS, (debug1sLatency ? 100 : 0));
             mDecoderOutputThread.start();
 
             mDecoderInputThread = new DecoderInputThread(mMediaCodec,sFPS);

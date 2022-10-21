@@ -66,4 +66,10 @@ public class UtilPreferences {
         }
         return wsWebsocketUrlBase+"/replay" ;
     }
+
+
+
+    public boolean getDebugPlaybuffer() {
+        return mSharedPreferences.getBoolean("debug_playBuffer",false) ;
+    }
 }
