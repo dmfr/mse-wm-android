@@ -22,6 +22,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -285,7 +286,7 @@ public class PlayVideoFragment extends Fragment {
         private long mImageFramePTS ;
         private int mImageCnt ;
 
-        private byte[] inputData ;
+        private ArrayDeque<byte[]> inputData ;
 
         // TODO : try ArrayDeque
 
@@ -295,6 +296,8 @@ public class PlayVideoFragment extends Fragment {
         public DecoderInputThread( MediaCodec mediaCodec, int FPS ) {
             this.mediaCodec = mediaCodec ;
             this.mediaCodecConfigured = false ;
+
+            this.inputData = new ArrayDeque<byte[]>() ;
 
             if( FPS > 0 ) {
                 mImageFramePTS = 1000000l / (long) (FPS);
@@ -309,11 +312,7 @@ public class PlayVideoFragment extends Fragment {
                 Log.e("damsdebug", "posted from another thread");
             }
              */
-            if( inputData != null ) {
-                Log.e("damsdebug", "DecoderInputThread COLLISION");
-                return ;
-            }
-            inputData = b ;
+            inputData.add(b);
             //inputData = Arrays.copyOf(b, b.length);
             mLocalHandler.sendEmptyMessage(POST_FRAME) ;
         }
@@ -341,7 +340,7 @@ public class PlayVideoFragment extends Fragment {
                             pushToDecoder();
                         }
                          */
-                        pushToDecoder();
+                        drainBuffer();
                     } else if( msg.what == POST_QUIT ) {
                         Looper.myLooper().quitSafely();
                     }
@@ -350,8 +349,14 @@ public class PlayVideoFragment extends Fragment {
             Looper.loop();
         }
 
-        private void pushToDecoder() {
-            byte[] data = inputData ;
+
+        private void drainBuffer() {
+            while( inputData.size() > 0 ) {
+                byte[] data = inputData.removeFirst() ;
+                pushToDecoder(data);
+            }
+        }
+        private void pushToDecoder(byte[] data) {
             if( !mediaCodecConfigured ) {
                 int typesMask = H264helper.getNALtypes(data);
                 int maskToCheck = 0;
@@ -377,7 +382,6 @@ public class PlayVideoFragment extends Fragment {
             if( !mediaCodecConfigured ) {
                 mediaCodecConfigured = true ;
             }
-            inputData = null ;
         }
     }
     private static class DecoderOutputThread extends Thread {
