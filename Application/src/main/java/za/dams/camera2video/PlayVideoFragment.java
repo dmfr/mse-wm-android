@@ -274,12 +274,6 @@ public class PlayVideoFragment extends Fragment {
 
 
     private static class DecoderInputThread extends Thread {
-        public static final int POST_FRAME = 1;
-        public static final int POST_QUIT = 9;
-
-        private Handler mLocalHandler;
-        private Looper mLocalLooper ;
-
         private MediaCodec mediaCodec ;
         private boolean mediaCodecConfigured ;
 
@@ -288,8 +282,10 @@ public class PlayVideoFragment extends Fragment {
 
         private ArrayDeque<byte[]> inputData ;
 
-        // TODO : try ArrayDeque
+        Object syncToken ;
+        boolean mRunning ;
 
+        
         public DecoderInputThread( MediaCodec mediaCodec ) {
             this(mediaCodec,0);
         }
@@ -298,6 +294,7 @@ public class PlayVideoFragment extends Fragment {
             this.mediaCodecConfigured = false ;
 
             this.inputData = new ArrayDeque<byte[]>() ;
+            this.syncToken = new Object();
 
             if( FPS > 0 ) {
                 mImageFramePTS = 1000000l / (long) (FPS);
@@ -307,56 +304,42 @@ public class PlayVideoFragment extends Fragment {
         }
 
         public void pushData( byte[] b ) {
-            /*
-            if( Looper.myLooper() != mLocalLooper ) {
-                Log.e("damsdebug", "posted from another thread");
-            }
-             */
             inputData.add(b);
-            //inputData = Arrays.copyOf(b, b.length);
-            mLocalHandler.sendEmptyMessage(POST_FRAME) ;
+            synchronized(syncToken) {
+                syncToken.notify();
+            }
         }
         public void terminate() {
-            /*
-            if( Looper.myLooper() != mLocalLooper ) {
-                Log.e("damsdebug", "posted from another thread");
+            mRunning = false ;
+            synchronized(syncToken) {
+                syncToken.notify();
             }
-             */
-            mLocalHandler.sendEmptyMessage(POST_QUIT) ;
         }
 
         @Override
         public void run(){
-            Looper.prepare();
-            mLocalLooper = Looper.myLooper() ;
-            mLocalHandler = new Handler(Looper.myLooper()) {
-                public void handleMessage(Message msg) {
-                    // Act on the message received from my UI thread doing my stuff
-                    if( msg.what == POST_FRAME ) {
-                        /*
-                        Log.e("damsdebug", "new packet on DecoderInputThread");
-                        if (Looper.myLooper() == mLocalLooper) {
-                            Log.e("damsdebug", "i am on DecoderInputThread");
-                            pushToDecoder();
-                        }
-                         */
-                        drainBuffer();
-                    } else if( msg.what == POST_QUIT ) {
-                        Looper.myLooper().quitSafely();
+            mRunning = true ;
+            while( mRunning ) {
+                drainBuffer() ;
+                synchronized (syncToken) {
+                    try {
+                        syncToken.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
                 }
-            };
-            Looper.loop();
+            }
         }
-
-
         private void drainBuffer() {
             while( inputData.size() > 0 ) {
                 byte[] data = inputData.removeFirst() ;
-                pushToDecoder(data);
+                if( !pushToDecoder(data) ) {
+                    inputData.push(data) ;
+                    break ;
+                }
             }
         }
-        private void pushToDecoder(byte[] data) {
+        private boolean pushToDecoder(byte[] data) {
             if( !mediaCodecConfigured ) {
                 int typesMask = H264helper.getNALtypes(data);
                 int maskToCheck = 0;
@@ -365,11 +348,14 @@ public class PlayVideoFragment extends Fragment {
                 if ((typesMask & maskToCheck) == maskToCheck) {
                     // ok to initialize
                 } else {
-                    return ;
+                    return true ;
                 }
             }
 
-            int inputIndex = mediaCodec.dequeueInputBuffer(-1);
+            int inputIndex = mediaCodec.dequeueInputBuffer(0);
+            if( inputIndex < 0 ) {
+                return false ;
+            }
             if (inputIndex >= 0) {
                 ByteBuffer buffer = mediaCodec.getInputBuffer(inputIndex);
                 buffer.put(data);
@@ -382,6 +368,7 @@ public class PlayVideoFragment extends Fragment {
             if( !mediaCodecConfigured ) {
                 mediaCodecConfigured = true ;
             }
+            return true ;
         }
     }
     private static class DecoderOutputThread extends Thread {
