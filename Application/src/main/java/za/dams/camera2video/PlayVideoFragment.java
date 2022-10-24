@@ -255,7 +255,24 @@ public class PlayVideoFragment extends Fragment {
     }
 
 
+    private static final boolean jitterDebug = true ;
+    private long jitterLastTsLong ;
     private void onFrameReceived( byte[] data ) {
+        if( jitterDebug ) {
+            //Log.w("DAMSDEBUG","Receiving bytes : " + data.length);
+            long newTsLong = System.currentTimeMillis();
+            if (jitterLastTsLong > 0) {
+                long ecart = newTsLong - jitterLastTsLong;
+                if (ecart > ((1000 / sFPS) + 10)) {
+                    Log.e("DAMSDEBUG", "Ecart : " + ecart);
+                }
+                if (ecart <= ((1000 / sFPS) - 10)) {
+                    //Log.w("DAMSDEBUG", "Short : " + ecart);
+                }
+            }
+            jitterLastTsLong = newTsLong;
+        }
+
         if( !mMediaCodecStarted ) {
             return ;
         }
