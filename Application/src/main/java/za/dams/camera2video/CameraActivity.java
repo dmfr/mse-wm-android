@@ -41,7 +41,6 @@ public class CameraActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         mWifiLock = ((WifiManager)getSystemService(Context.WIFI_SERVICE)).createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY,"za.dams.camera2video") ;
-        mWifiLock.acquire();
 
         if( !hasPermissionsGranted(VIDEO_PERMISSIONS)) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_VIDEO_PERMISSIONS);
@@ -54,12 +53,21 @@ public class CameraActivity extends Activity {
                     .commit();
         }
     }
-
     @Override
     protected void onDestroy() {
-        mWifiLock.release();
         super.onDestroy();
     }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mWifiLock.acquire();
+    }
+    @Override
+    protected void onPause() {
+        mWifiLock.release();
+        super.onPause();
+    }
+
 
     public void openPreferences() {
         getFragmentManager().beginTransaction()
