@@ -508,11 +508,19 @@ public class Camera2VideoFragment extends Fragment
             streamWidth = mVideoSize.getHeight() ;
         }
 
+        String codecMimetype = mPrefs.getVideoCodec() ;
+        int codecProfile = 0 ;
+        if( codecMimetype.equals(MediaFormat.MIMETYPE_VIDEO_AVC) ) {
+            codecProfile = mPrefs.getVideoProfile() ;
+        }
+        if( codecMimetype.equals(MediaFormat.MIMETYPE_VIDEO_HEVC) ) {
+            codecProfile = MediaCodecInfo.CodecProfileLevel.HEVCProfileMain ;
+        }
 
-        mMediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
-        MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC,
+        mMediaCodec = MediaCodec.createEncoderByType(codecMimetype);
+        MediaFormat format = MediaFormat.createVideoFormat(codecMimetype,
                 streamWidth, streamHeight);
-        format.setInteger(MediaFormat.KEY_PROFILE, mPrefs.getVideoProfile());
+        format.setInteger(MediaFormat.KEY_PROFILE, codecProfile);
         format.setInteger(MediaFormat.KEY_BIT_RATE, mPrefs.getVideoBitrate());
         format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, sFPS);

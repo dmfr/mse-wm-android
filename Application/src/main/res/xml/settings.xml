@@ -25,6 +25,12 @@
             android:entryValues="@array/videoResolutions_values" />
 
         <ListPreference
+            android:key="video_codec"
+            android:title="Video codec"
+            android:entries="@array/videoCodecs_text"
+            android:entryValues="@array/videoCodecs_values" />
+
+        <ListPreference
             android:key="video_profile"
             android:title="AVC Profile"
             android:entries="@array/videoProfiles_text"

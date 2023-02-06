@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
+import android.media.MediaFormat;
 import android.preference.PreferenceManager;
 import android.util.Size;
 
@@ -12,6 +13,7 @@ public class UtilPreferences {
     private SharedPreferences mSharedPreferences;
 
     private static final String default_videoBitrate = "2000" ;
+    private static final String default_videoCodec = "avc" ;
     private static final String default_videoProfile = "baseline" ;
     private static final String default_videoResolution = "720p" ;
 
@@ -20,6 +22,16 @@ public class UtilPreferences {
         this.mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
     }
 
+    public String getVideoCodec() {
+        String strCodec = mSharedPreferences.getString("video_codec", default_videoCodec) ;
+        if( strCodec.equals("avc") ) {
+            return MediaFormat.MIMETYPE_VIDEO_AVC ;
+        } else if( strCodec.equals("hevc") ) {
+            return MediaFormat.MIMETYPE_VIDEO_HEVC ;
+        } else {
+            return null ;
+        }
+    }
     public int getVideoBitrate() {
         String strBitrateK = mSharedPreferences.getString("video_bitrate", default_videoBitrate) ;
         int bitrateK = Integer.parseInt(strBitrateK) ;
@@ -57,7 +69,18 @@ public class UtilPreferences {
         while( wsWebsocketUrlBase.endsWith("/") ) {
             wsWebsocketUrlBase = wsWebsocketUrlBase.substring(0,wsWebsocketUrlBase.length()-1) ;
         }
-        return wsWebsocketUrlBase+"/record" ;
+
+        String videoFormat = "undefined" ;
+        switch( getVideoCodec() ) {
+            case MediaFormat.MIMETYPE_VIDEO_HEVC :
+                videoFormat = "hevc" ;
+                break ;
+            case MediaFormat.MIMETYPE_VIDEO_AVC:
+                videoFormat = "avc" ;
+                break ;
+        }
+
+        return wsWebsocketUrlBase+"/record"+"?"+"format="+videoFormat ;
     }
     public String getPeerWebsocketPlayUrl(){
         String wsWebsocketUrlBase = mSharedPreferences.getString("peer_wsUrlBase", mContext.getString(R.string.peer_wsUrlBase) ) ;
