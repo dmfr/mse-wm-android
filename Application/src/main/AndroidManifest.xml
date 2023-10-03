@@ -15,7 +15,6 @@
  limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="za.dams.camera2video"
     android:versionCode="1"
     android:versionName="1.0">
 
