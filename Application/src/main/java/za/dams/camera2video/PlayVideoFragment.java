@@ -241,7 +241,7 @@ public class PlayVideoFragment extends Fragment {
         closeWebsocket() ;
 
         String wsUrl = mPrefs.getPeerWebsocketPlayUrl();
-        wsUrl += "?id=CLIP1" ;
+        wsUrl += "?id=e3bacf0c-a0c5-4a26-bed5-dd14a184d2c6" ;
 
         wsRunning = wsError = false ;
         Request request = new Request.Builder().url(wsUrl).build();
@@ -305,7 +305,7 @@ public class PlayVideoFragment extends Fragment {
         Object syncToken ;
         boolean mRunning ;
 
-        
+
         public DecoderInputThread( MediaCodec mediaCodec ) {
             this(mediaCodec,0);
         }
@@ -380,8 +380,8 @@ public class PlayVideoFragment extends Fragment {
                 ByteBuffer buffer = mediaCodec.getInputBuffer(inputIndex);
                 buffer.put(data);
 
-                long PTS = mImageCnt * mImageFramePTS ;
-                mediaCodec.queueInputBuffer(inputIndex, 0, data.length, PTS,
+                long PTS = mImageCnt * mImageFramePTS ; // useless??
+                mediaCodec.queueInputBuffer(inputIndex, 0, data.length, 0,
                         !mediaCodecConfigured ? MediaCodec.BUFFER_FLAG_CODEC_CONFIG & MediaCodec.BUFFER_FLAG_KEY_FRAME : 0);
                 mImageCnt++ ;
             }
