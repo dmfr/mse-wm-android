@@ -100,7 +100,7 @@ public class PlayVideoFragment extends Fragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        okHttpClient = new OkHttpClient();
+        okHttpClient = new OkHttpClient.Builder().build() ;
         mPrefs = new UtilPreferences(getActivity()) ;
     }
     @Override
