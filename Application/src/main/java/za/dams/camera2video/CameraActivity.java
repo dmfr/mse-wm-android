@@ -35,7 +35,8 @@ public class CameraActivity extends Activity {
 
     private static final int REQUEST_VIDEO_PERMISSIONS = 1;
     private static final String[] VIDEO_PERMISSIONS = {
-            Manifest.permission.CAMERA
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO,
     };
 
     @Override
@@ -50,7 +51,7 @@ public class CameraActivity extends Activity {
         mWifiLock = ((WifiManager)getSystemService(Context.WIFI_SERVICE)).createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF,"za.dams.camera2video.WIFI_MODE_FULL_HIGH_PERF") ;
 
         if( !hasPermissionsGranted(VIDEO_PERMISSIONS)) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_VIDEO_PERMISSIONS);
+            ActivityCompat.requestPermissions(this, VIDEO_PERMISSIONS, REQUEST_VIDEO_PERMISSIONS);
             return ;
         }
         setContentView(R.layout.activity_camera);
@@ -102,7 +103,13 @@ public class CameraActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == REQUEST_VIDEO_PERMISSIONS) {
-            if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+            boolean denied = false ;
+            for( int i=0 ; i<grantResults.length ; i++ ) {
+                if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+                    denied=true ;
+                }
+            }
+            if (denied) {
                 // close the app
                 Toast.makeText(this, "Sorry!!!, you can't use this app without granting permission", Toast.LENGTH_LONG).show();
                 finish();
