@@ -38,6 +38,8 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaCodec;
@@ -138,6 +140,7 @@ public class Camera2VideoFragment extends Fragment
 
     private MediaCodec mMediaCodec;
     private ImageReader mImgReader ;
+    private AudioRecord mAudioRecord ;
     private long mImageFramePTS ;
     private int mImageYUVbytesize ;
 
@@ -161,6 +164,14 @@ public class Camera2VideoFragment extends Fragment
 
     private HandlerThread mImageThread ;
     private Handler mImageHandler ;
+
+    private static final int AUDIOCFG_RATE = 44100;
+    private static final int AUDIOCFG_CHANNEL = AudioFormat.CHANNEL_IN_MONO;
+    private static final int AUDIOCFG_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+    private static final int AUDIO_BUFFERSIZE = AudioRecord.getMinBufferSize(AUDIOCFG_RATE,
+            AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT) * 4;
+    private AudioReaderThread mAudioThread ;
+    private Handler mAudioHandler ;
 
 
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
@@ -410,6 +421,11 @@ public class Camera2VideoFragment extends Fragment
                 mImageYUVbytesize = mVideoSize.getWidth() * mVideoSize.getHeight() * 12 / 8 ;
                 //https://wiki.videolan.org/YUV
 
+                mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, AUDIOCFG_RATE,
+                        AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT, AUDIO_BUFFERSIZE);
+                Log.w("DAMS","Buffer size is "+AUDIO_BUFFERSIZE);
+                mAudioThread = new AudioReaderThread(mAudioRecord) ;
+
                 mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.YUV_420_888,5);
                 Surface imgSurface = mImgReader.getSurface() ;
                 surfaces.add(imgSurface);
@@ -421,7 +437,6 @@ public class Camera2VideoFragment extends Fragment
                         if( img==null ) {
                             return ;
                         }
-
                         int inputBufferId = mMediaCodec.dequeueInputBuffer(0);
                         if (inputBufferId >= 0) {
                             // int sizeReturn = mMediaCodec.getInputBuffer(inputBufferId).remaining() ;
@@ -437,6 +452,7 @@ public class Camera2VideoFragment extends Fragment
                             long PTS = mNbInputImg * mImageFramePTS ;
                             mMediaCodec.queueInputBuffer(inputBufferId, 0, mImageYUVbytesize, PTS, 0);
                             mNbInputImg++;
+                            Log.w("DAMS","Read image = "+mNbInputImg);
                         }
                         img.close();
                     }
@@ -476,6 +492,9 @@ public class Camera2VideoFragment extends Fragment
                                         mIsRecordingVideoPending = false ;
                                         mIsRecordingVideo = true;
 
+                                        mAudioRecord.startRecording();
+                                        mAudioThread.start();
+
                                         updateUI();
                                     }
                                 });
@@ -490,6 +509,7 @@ public class Camera2VideoFragment extends Fragment
                             }
                         }
                     }, mBackgroundHandler);
+
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -542,8 +562,10 @@ public class Camera2VideoFragment extends Fragment
             }
             mEncoderThread = null ;
         }
-        if( mImageThread != null ) {
+        if( mImgReader != null ) {
             mImgReader.setOnImageAvailableListener(null,null);
+            mImgReader.close();
+
             mImageThread.quitSafely() ;
             try {
                 mImageThread.join();
@@ -552,7 +574,23 @@ public class Camera2VideoFragment extends Fragment
             }
             mImageThread = null ;
             mImageHandler = null ;
+
             mImgReader = null ;
+        }
+        if( mAudioRecord != null ) {
+            mAudioRecord.stop();
+            mAudioRecord.release();
+
+            mAudioThread.terminate() ;
+            try {
+                mAudioThread.join();
+            } catch( Exception e ) {
+                e.printStackTrace();
+            }
+            mAudioThread = null ;
+            mAudioHandler = null ;
+
+            mAudioRecord = null ;
         }
         if( mMediaCodec != null ) {
             mMediaCodec.stop() ;
@@ -730,6 +768,29 @@ public class Camera2VideoFragment extends Fragment
         }
     }
 
+    private static class AudioReaderThread extends Thread {
+        private boolean isRunning = true ;
+        private AudioRecord audioRecord ;
+
+        AudioReaderThread() {
+
+        }
+        AudioReaderThread( AudioRecord audioRecord ) {
+            this.audioRecord = audioRecord ;
+        }
+        @Override
+        public void run() {
+            final ByteBuffer buffer = ByteBuffer.allocateDirect(AUDIO_BUFFERSIZE);
+            while( isRunning ) {
+                int result = audioRecord.read(buffer, AUDIO_BUFFERSIZE);
+                Log.w("DAMS","AUDIO bytes = "+result);
+                buffer.clear();
+            }
+        }
+        public void terminate() {
+            isRunning=false ;
+        }
+    }
     private static class EncoderThread extends Thread {
         private boolean isRunning = true ;
         MediaCodec.BufferInfo mBufferInfo;
@@ -771,6 +832,7 @@ public class Camera2VideoFragment extends Fragment
 
                         //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
                         webSocket.send(bs);
+                        Log.w("DAMS","Send websocket");
                     }
                 }
             }
