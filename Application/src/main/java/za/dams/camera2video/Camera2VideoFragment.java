@@ -69,6 +69,8 @@ import androidx.annotation.NonNull;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -169,9 +171,10 @@ public class Camera2VideoFragment extends Fragment
     private static final int AUDIOCFG_CHANNEL = AudioFormat.CHANNEL_IN_MONO;
     private static final int AUDIOCFG_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
     private static final int AUDIO_BUFFERSIZE = AudioRecord.getMinBufferSize(AUDIOCFG_RATE,
-            AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT) * 4;
+            AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT) * 1;
     private AudioReaderThread mAudioThread ;
-    private Handler mAudioHandler ;
+    private MediaCodec mMediaCodecAudio ;
+    private DummyEncoderThread mAudioEncoderThread ;
 
 
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
@@ -421,11 +424,6 @@ public class Camera2VideoFragment extends Fragment
                 mImageYUVbytesize = mVideoSize.getWidth() * mVideoSize.getHeight() * 12 / 8 ;
                 //https://wiki.videolan.org/YUV
 
-                mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, AUDIOCFG_RATE,
-                        AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT, AUDIO_BUFFERSIZE);
-                Log.w("DAMS","Buffer size is "+AUDIO_BUFFERSIZE);
-                mAudioThread = new AudioReaderThread(mAudioRecord) ;
-
                 mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.YUV_420_888,5);
                 Surface imgSurface = mImgReader.getSurface() ;
                 surfaces.add(imgSurface);
@@ -452,7 +450,7 @@ public class Camera2VideoFragment extends Fragment
                             long PTS = mNbInputImg * mImageFramePTS ;
                             mMediaCodec.queueInputBuffer(inputBufferId, 0, mImageYUVbytesize, PTS, 0);
                             mNbInputImg++;
-                            Log.w("DAMS","Read image = "+mNbInputImg);
+                            //Log.w("DAMS","Read image = "+mNbInputImg);
                         }
                         img.close();
                     }
@@ -463,6 +461,26 @@ public class Camera2VideoFragment extends Fragment
                 mMediaCodec.start();
                 mEncoderThread = new EncoderThread(mMediaCodec,websocket);
                 mEncoderThread.start();
+            }
+            if( mIsRecordingVideoPending && (mMediaCodecAudio != null) ) {
+                mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, AUDIOCFG_RATE,
+                        AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT, AUDIO_BUFFERSIZE);
+                Log.w("DAMS","Buffer size is "+AUDIO_BUFFERSIZE);
+                android.media.audiofx.NoiseSuppressor noiseSuppressor = android.media.audiofx.NoiseSuppressor
+                        .create(mAudioRecord.getAudioSessionId());
+                if( noiseSuppressor != null ) {
+                    noiseSuppressor.setEnabled(true) ;
+                }
+                android.media.audiofx.AutomaticGainControl automaticGainControl = android.media.audiofx.AutomaticGainControl
+                        .create(mAudioRecord.getAudioSessionId());
+                if( automaticGainControl != null ) {
+                    automaticGainControl.setEnabled(true) ;
+                }
+                mAudioThread = new AudioReaderThread(mAudioRecord,mMediaCodecAudio) ;
+
+                mMediaCodecAudio.start();
+                mAudioEncoderThread = new DummyEncoderThread(mMediaCodecAudio,websocket);
+                mAudioEncoderThread.start();
             }
 
             mCameraDevice.createCaptureSession(surfaces,
@@ -552,7 +570,33 @@ public class Camera2VideoFragment extends Fragment
         format.setInteger(MediaFormat.KEY_PRIORITY, 0x00);
         mMediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
    }
+    private void setUpMediaCodecAudio() throws IOException {
+        String codecMimetype = MediaFormat.MIMETYPE_AUDIO_AAC ;
+        mMediaCodecAudio = MediaCodec.createEncoderByType(codecMimetype);
+        MediaFormat format = MediaFormat.createAudioFormat(codecMimetype,
+                AUDIOCFG_RATE, AUDIOCFG_CHANNEL);
+        format.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 64000);
+        format.setInteger(MediaFormat.KEY_LATENCY, 0);
+        format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1);
+        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, AUDIO_BUFFERSIZE);
+        format.setInteger(MediaFormat.KEY_SAMPLE_RATE, AUDIOCFG_RATE);
+        format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
+
+        // Set the encoder priority to realtime.
+        format.setInteger(MediaFormat.KEY_PRIORITY, 0x00);
+        mMediaCodecAudio.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+    }
     private void destroyMediaCodec() {
+        if( mAudioEncoderThread != null ) {
+            mAudioEncoderThread.terminate();
+            try {
+                mAudioEncoderThread.join();
+            } catch( Exception e ) {
+                e.printStackTrace();
+            }
+            mAudioEncoderThread = null ;
+        }
         if( mEncoderThread != null ) {
             mEncoderThread.terminate();
             try {
@@ -588,9 +632,13 @@ public class Camera2VideoFragment extends Fragment
                 e.printStackTrace();
             }
             mAudioThread = null ;
-            mAudioHandler = null ;
 
             mAudioRecord = null ;
+        }
+        if( mMediaCodecAudio != null ) {
+            mMediaCodecAudio.stop() ;
+            mMediaCodecAudio.release();
+            mMediaCodecAudio = null;
         }
         if( mMediaCodec != null ) {
             mMediaCodec.stop() ;
@@ -629,6 +677,7 @@ public class Camera2VideoFragment extends Fragment
                 public void run() {
                     try {
                         setUpMediaCodec();
+                        setUpMediaCodecAudio();
 
                         setUpWebsocket() ;
                         int wsTries=0 ;
@@ -771,19 +820,28 @@ public class Camera2VideoFragment extends Fragment
     private static class AudioReaderThread extends Thread {
         private boolean isRunning = true ;
         private AudioRecord audioRecord ;
+        private MediaCodec mediaCodec ;
 
         AudioReaderThread() {
 
         }
-        AudioReaderThread( AudioRecord audioRecord ) {
+        AudioReaderThread( AudioRecord audioRecord, MediaCodec mediaCodec ) {
             this.audioRecord = audioRecord ;
+            this.mediaCodec = mediaCodec ;
         }
         @Override
         public void run() {
             final ByteBuffer buffer = ByteBuffer.allocateDirect(AUDIO_BUFFERSIZE);
             while( isRunning ) {
-                int result = audioRecord.read(buffer, AUDIO_BUFFERSIZE);
-                Log.w("DAMS","AUDIO bytes = "+result);
+                int length = audioRecord.read(buffer, AUDIO_BUFFERSIZE);
+                Log.w("DAMS","AUDIO bytes = "+length);
+
+                int inputBufferId = mediaCodec.dequeueInputBuffer(0);
+                if (inputBufferId >= 0) {
+                    ByteBuffer codecBuffer = mediaCodec.getInputBuffer(inputBufferId);
+                    codecBuffer.put(buffer);
+                    mediaCodec.queueInputBuffer(inputBufferId, 0, length, 0, 0 );
+                }
                 buffer.clear();
             }
         }
@@ -832,7 +890,7 @@ public class Camera2VideoFragment extends Fragment
 
                         //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
                         webSocket.send(bs);
-                        Log.w("DAMS","Send websocket");
+                        //Log.w("DAMS","Send websocket");
                     }
                 }
             }
@@ -840,6 +898,116 @@ public class Camera2VideoFragment extends Fragment
 
         public void terminate() {
             isRunning=false ;
+        }
+    }
+    private class DummyEncoderThread extends Thread {
+        private boolean isRunning = true ;
+        MediaCodec.BufferInfo mBufferInfo;
+        final long mTimeoutUsec;
+
+        private MediaCodec mediaCodec ;
+        private WebSocket webSocket ;
+
+        ByteString bs ;
+
+        FileOutputStream outstream ;
+
+        DummyEncoderThread( MediaCodec mediaCodec, WebSocket webSocket ) {
+            this.mediaCodec=mediaCodec;
+            this.webSocket=webSocket;
+
+
+
+            mBufferInfo = new MediaCodec.BufferInfo();
+            mTimeoutUsec = 10000l;
+
+            final File file = new File(Camera2VideoFragment.this.getActivity().getFilesDir(), "recording.aac");
+            try {
+                final FileOutputStream outStream = new FileOutputStream(file);
+                this.outstream = outStream ;
+            } catch(Exception e) {
+                Log.w("DAMS","Exception!!!") ;
+                Log.w("DAMS",e.getMessage()) ;
+            }
+            Log.w("DAMS","Name:"+file.getAbsolutePath()) ;
+
+        }
+
+        @Override
+        public void run() {
+            super.run();
+            while( isRunning ) {
+                encode() ;
+            }
+        }
+
+
+        private void encode() {
+            for(;;) {
+                if( !isRunning ) break;
+                int status = mediaCodec.dequeueOutputBuffer(mBufferInfo, mTimeoutUsec);
+                if (status >= 0) {
+                    Log.w("dams","Flag is "+mBufferInfo.flags) ;
+                    Log.w("dams","Offset is "+mBufferInfo.offset) ;
+                    Log.w("dams","Size is "+mBufferInfo.size) ;
+                    // encoded sample
+                    ByteBuffer data = mediaCodec.getOutputBuffer(status);
+                    if (data != null) {
+                        if( mBufferInfo.flags==0 ) {
+                            //data.rewind();
+                            //bs = ByteString.of(data);
+                            // releasing buffer is important
+                            byte[] header = createAdtsHeader(mBufferInfo.size - mBufferInfo.offset);
+
+                            try {
+                                outstream.write(header);
+                            } catch (Exception e) {
+                                Log.w("DAMS", "Exceptin!!");
+                                Log.w("DAMS", e.getMessage());
+                            }
+
+                            //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
+                            //webSocket.send(bs);
+                            //Log.w("DAMS","Send AUDIO websocket size = "+bs.size());
+                            Log.w("DAMS", "will write len=" + data.remaining());
+
+                            byte[] arr = new byte[data.remaining()];
+                            data.get(arr);
+
+
+                            try {
+                                outstream.write(arr);
+                            } catch (Exception e) {
+                                Log.w("DAMS", "Exceptin!!");
+                                Log.w("DAMS", e.getMessage());
+                            }
+                        }
+
+                        mediaCodec.releaseOutputBuffer(status, false);
+                    }
+                }
+            }
+        }
+
+        public void terminate() {
+            isRunning=false ;
+        }
+
+        private byte[] createAdtsHeader(int length) {
+            int frameLength = length + 7;
+            byte[] adtsHeader = new byte[7];
+
+            adtsHeader[0] = (byte) 0xFF; // Sync Word
+            adtsHeader[1] = (byte) 0xF1; // MPEG-4, Layer (0), No CRC
+            adtsHeader[2] = (byte) ((MediaCodecInfo.CodecProfileLevel.AACObjectLC - 1) << 6);
+            adtsHeader[2] |= (((byte) 4) << 2);
+            adtsHeader[2] |= (((byte) 1) >> 2);
+            adtsHeader[3] = (byte) (((1 & 3) << 6) | ((frameLength >> 11) & 0x03));
+            adtsHeader[4] = (byte) ((frameLength >> 3) & 0xFF);
+            adtsHeader[5] = (byte) (((frameLength & 0x07) << 5) | 0x1f);
+            adtsHeader[6] = (byte) 0xFC;
+
+            return adtsHeader;
         }
     }
 
