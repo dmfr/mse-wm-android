@@ -174,7 +174,7 @@ public class Camera2VideoFragment extends Fragment
             AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT) * 1;
     private AudioReaderThread mAudioThread ;
     private MediaCodec mMediaCodecAudio ;
-    private DummyEncoderThread mAudioEncoderThread ;
+    private AudioEncoderThread mAudioEncoderThread ;
 
 
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
@@ -479,7 +479,7 @@ public class Camera2VideoFragment extends Fragment
                 mAudioThread = new AudioReaderThread(mAudioRecord,mMediaCodecAudio) ;
 
                 mMediaCodecAudio.start();
-                mAudioEncoderThread = new DummyEncoderThread(mMediaCodecAudio,websocket);
+                mAudioEncoderThread = new AudioEncoderThread(mMediaCodecAudio,websocket);
                 mAudioEncoderThread.start();
             }
 
@@ -900,7 +900,7 @@ public class Camera2VideoFragment extends Fragment
             isRunning=false ;
         }
     }
-    private class DummyEncoderThread extends Thread {
+    private static class AudioEncoderThread extends Thread {
         private boolean isRunning = true ;
         MediaCodec.BufferInfo mBufferInfo;
         final long mTimeoutUsec;
@@ -910,27 +910,12 @@ public class Camera2VideoFragment extends Fragment
 
         ByteString bs ;
 
-        FileOutputStream outstream ;
-
-        DummyEncoderThread( MediaCodec mediaCodec, WebSocket webSocket ) {
+        AudioEncoderThread( MediaCodec mediaCodec, WebSocket webSocket ) {
             this.mediaCodec=mediaCodec;
             this.webSocket=webSocket;
 
-
-
             mBufferInfo = new MediaCodec.BufferInfo();
             mTimeoutUsec = 10000l;
-
-            final File file = new File(Camera2VideoFragment.this.getActivity().getFilesDir(), "recording.aac");
-            try {
-                final FileOutputStream outStream = new FileOutputStream(file);
-                this.outstream = outStream ;
-            } catch(Exception e) {
-                Log.w("DAMS","Exception!!!") ;
-                Log.w("DAMS",e.getMessage()) ;
-            }
-            Log.w("DAMS","Name:"+file.getAbsolutePath()) ;
-
         }
 
         @Override
@@ -954,35 +939,17 @@ public class Camera2VideoFragment extends Fragment
                     ByteBuffer data = mediaCodec.getOutputBuffer(status);
                     if (data != null) {
                         if( mBufferInfo.flags==0 ) {
-                            //data.rewind();
-                            //bs = ByteString.of(data);
                             // releasing buffer is important
-                            byte[] header = createAdtsHeader(mBufferInfo.size - mBufferInfo.offset);
+                            int rawlength = mBufferInfo.size - mBufferInfo.offset ;
+                            byte[] header = createAdtsHeader(rawlength);
+                            byte[] rawdata = new byte[rawlength];
+                            data.get(rawdata,mBufferInfo.offset,rawlength) ;
+                            ByteBuffer outbb = ByteBuffer.allocate(rawlength+ header.length).put(header).put(rawdata);
+                            outbb.rewind();
+                            bs = ByteString.of(outbb);
+                            webSocket.send(bs);
 
-                            try {
-                                outstream.write(header);
-                            } catch (Exception e) {
-                                Log.w("DAMS", "Exceptin!!");
-                                Log.w("DAMS", e.getMessage());
-                            }
-
-                            //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
-                            //webSocket.send(bs);
-                            //Log.w("DAMS","Send AUDIO websocket size = "+bs.size());
-                            Log.w("DAMS", "will write len=" + data.remaining());
-
-                            byte[] arr = new byte[data.remaining()];
-                            data.get(arr);
-
-
-                            try {
-                                outstream.write(arr);
-                            } catch (Exception e) {
-                                Log.w("DAMS", "Exceptin!!");
-                                Log.w("DAMS", e.getMessage());
-                            }
                         }
-
                         mediaCodec.releaseOutputBuffer(status, false);
                     }
                 }
@@ -994,14 +961,15 @@ public class Camera2VideoFragment extends Fragment
         }
 
         private byte[] createAdtsHeader(int length) {
-            final int CHANNELS = 1 ;
+            final int SAMPLE_RATE_INDEX = 4 ; // 44100
+            final int CHANNELS = 1 ; // MONO
             int frameLength = length + 7;
             byte[] adtsHeader = new byte[7];
 
             adtsHeader[0] = (byte) 0xFF; // Sync Word
             adtsHeader[1] = (byte) 0xF1; // MPEG-4, Layer (0), No CRC
             adtsHeader[2] = (byte) ((MediaCodecInfo.CodecProfileLevel.AACObjectLC - 1) << 6);
-            adtsHeader[2] |= (((byte) 4) << 2);
+            adtsHeader[2] |= (((byte) SAMPLE_RATE_INDEX) << 2);
             adtsHeader[2] |= (((byte) CHANNELS) >> 2);
             adtsHeader[3] = (byte) (((CHANNELS & 3) << 6) | ((frameLength >> 11) & 0x03));
             adtsHeader[4] = (byte) ((frameLength >> 3) & 0xFF);
