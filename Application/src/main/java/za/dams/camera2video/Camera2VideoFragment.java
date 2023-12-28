@@ -597,6 +597,25 @@ public class Camera2VideoFragment extends Fragment
             }
             mAudioEncoderThread = null ;
         }
+        if( mAudioRecord != null ) {
+            mAudioThread.terminate() ;
+            try {
+                mAudioThread.join();
+            } catch( Exception e ) {
+                e.printStackTrace();
+            }
+            mAudioThread = null ;
+
+            mAudioRecord.stop();
+            mAudioRecord.release();
+            mAudioRecord = null ;
+        }
+        if( mMediaCodecAudio != null ) {
+            mMediaCodecAudio.stop() ;
+            mMediaCodecAudio.release();
+            mMediaCodecAudio = null;
+        }
+
         if( mEncoderThread != null ) {
             mEncoderThread.terminate();
             try {
@@ -608,7 +627,6 @@ public class Camera2VideoFragment extends Fragment
         }
         if( mImgReader != null ) {
             mImgReader.setOnImageAvailableListener(null,null);
-            mImgReader.close();
 
             mImageThread.quitSafely() ;
             try {
@@ -619,26 +637,8 @@ public class Camera2VideoFragment extends Fragment
             mImageThread = null ;
             mImageHandler = null ;
 
+            mImgReader.close();
             mImgReader = null ;
-        }
-        if( mAudioRecord != null ) {
-            mAudioRecord.stop();
-            mAudioRecord.release();
-
-            mAudioThread.terminate() ;
-            try {
-                mAudioThread.join();
-            } catch( Exception e ) {
-                e.printStackTrace();
-            }
-            mAudioThread = null ;
-
-            mAudioRecord = null ;
-        }
-        if( mMediaCodecAudio != null ) {
-            mMediaCodecAudio.stop() ;
-            mMediaCodecAudio.release();
-            mMediaCodecAudio = null;
         }
         if( mMediaCodec != null ) {
             mMediaCodec.stop() ;
