@@ -80,7 +80,7 @@ public class UtilPreferences {
                 break ;
         }
 
-        return wsWebsocketUrlBase+"/record"+"?"+"format="+videoFormat ;
+        return wsWebsocketUrlBase+"/record"+"?"+"format="+videoFormat+"&audio=1" ;
     }
     public String getPeerWebsocketPlayUrl(){
         String wsWebsocketUrlBase = mSharedPreferences.getString("peer_wsUrlBase", mContext.getString(R.string.peer_wsUrlBase) ) ;
