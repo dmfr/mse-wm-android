@@ -315,7 +315,7 @@ public class Camera2VideoFragment extends Fragment
                 throw new RuntimeException("Cannot get available preview/video sizes");
             }
             mVideoSize = mPrefs.getVideoResolution();
-            Log.d("damsdebug", "VideoSize : "+mVideoSize.getWidth()+" x "+mVideoSize.getHeight());
+            //Log.d("damsdebug", "VideoSize : "+mVideoSize.getWidth()+" x "+mVideoSize.getHeight());
 
             int orientation = getResources().getConfiguration().orientation;
             if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -465,7 +465,7 @@ public class Camera2VideoFragment extends Fragment
             if( mIsRecordingVideoPending && (mMediaCodecAudio != null) ) {
                 mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, AUDIOCFG_RATE,
                         AUDIOCFG_CHANNEL, AUDIOCFG_FORMAT, AUDIO_BUFFERSIZE);
-                Log.w("DAMS","Buffer size is "+AUDIO_BUFFERSIZE);
+                //Log.w("DAMS","Buffer size is "+AUDIO_BUFFERSIZE);
                 android.media.audiofx.NoiseSuppressor noiseSuppressor = android.media.audiofx.NoiseSuppressor
                         .create(mAudioRecord.getAudioSessionId());
                 if( noiseSuppressor != null ) {
@@ -834,7 +834,7 @@ public class Camera2VideoFragment extends Fragment
             final ByteBuffer buffer = ByteBuffer.allocateDirect(AUDIO_BUFFERSIZE);
             while( isRunning ) {
                 int length = audioRecord.read(buffer, AUDIO_BUFFERSIZE);
-                Log.w("DAMS","AUDIO bytes = "+length);
+                //Log.w("DAMS","AUDIO bytes = "+length);
 
                 int inputBufferId = mediaCodec.dequeueInputBuffer(0);
                 if (inputBufferId >= 0) {
@@ -932,9 +932,10 @@ public class Camera2VideoFragment extends Fragment
                 if( !isRunning ) break;
                 int status = mediaCodec.dequeueOutputBuffer(mBufferInfo, mTimeoutUsec);
                 if (status >= 0) {
-                    Log.w("dams","Flag is "+mBufferInfo.flags) ;
-                    Log.w("dams","Offset is "+mBufferInfo.offset) ;
-                    Log.w("dams","Size is "+mBufferInfo.size) ;
+                    //Log.w("dams","Flag is "+mBufferInfo.flags) ;
+                    //Log.w("dams","Offset is "+mBufferInfo.offset) ;
+                    //Log.w("dams","Size is "+mBufferInfo.size) ;
+
                     // encoded sample
                     ByteBuffer data = mediaCodec.getOutputBuffer(status);
                     if (data != null) {
