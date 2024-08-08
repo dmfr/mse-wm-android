@@ -405,15 +405,13 @@ public class Camera2VideoFragment extends Fragment
         try {
             closeCaptureSession();
 
-            //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
-            CaptureRequest.Builder camRequestBuilder = mCameraDevice.createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
+
 
             List<Surface> surfaces = new ArrayList<>();
 
             // Set up Surface for the camera preview
             Surface previewSurface = mSurfaceView.getHolder().getSurface();
             surfaces.add(previewSurface);
-            camRequestBuilder.addTarget(previewSurface);
 
             if( mIsRecordingVideoPending && (mMediaCodec != null) ) {
                 mImageThread = new HandlerThread("imgThread") ;
@@ -427,7 +425,6 @@ public class Camera2VideoFragment extends Fragment
                 mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.YUV_420_888,5);
                 Surface imgSurface = mImgReader.getSurface() ;
                 surfaces.add(imgSurface);
-                camRequestBuilder.addTarget(imgSurface);
                 mImgReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                     @Override
                     public void onImageAvailable(ImageReader reader) {
@@ -490,15 +487,22 @@ public class Camera2VideoFragment extends Fragment
                         public void onConfigured(CameraCaptureSession session) {
                             mCaptureSession = session;
 
-                            camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-                            camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(sFPS, sFPS));
-                            camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                                    mIsRecordingVideoPending ? CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF : CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF );
-
-                            mBackgroundThread = new HandlerThread("CameraBackground");
-                            mBackgroundThread.start();
-                            mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
                             try {
+                                //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
+                                CaptureRequest.Builder camRequestBuilder = session.getDevice().createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
+                                for( Surface s : surfaces ) {
+                                    camRequestBuilder.addTarget(s);
+                                }
+                                camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+                                camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(sFPS, sFPS));
+                                camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
+                                camRequestBuilder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_OFF);
+                                camRequestBuilder.set(CaptureRequest.DISTORTION_CORRECTION_MODE, CameraMetadata.DISTORTION_CORRECTION_MODE_HIGH_QUALITY);
+
+                                mBackgroundThread = new HandlerThread("CameraBackground");
+                                mBackgroundThread.start();
+                                mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
+
                                 mCaptureSession.setRepeatingRequest(camRequestBuilder.build(), null, mBackgroundHandler);
                             } catch( Exception e ) {
                                 e.printStackTrace();
