@@ -558,9 +558,13 @@ public class Camera2VideoFragment extends Fragment
         mMediaCodec = MediaCodec.createEncoderByType(codecMimetype);
         MediaFormat format = MediaFormat.createVideoFormat(codecMimetype,
                 streamWidth, streamHeight);
+        int bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
+        if( mPrefs.getVideoBitrate() < 2000000 ) {
+            bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
+        }
         format.setInteger(MediaFormat.KEY_PROFILE, codecProfile);
         format.setInteger(MediaFormat.KEY_BIT_RATE, mPrefs.getVideoBitrate());
-        format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
+        format.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, sFPS);
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         format.setInteger(MediaFormat.KEY_LATENCY, 0);
