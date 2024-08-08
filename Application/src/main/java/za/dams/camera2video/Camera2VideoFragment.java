@@ -28,6 +28,7 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -139,6 +140,8 @@ public class Camera2VideoFragment extends Fragment
     private CameraCaptureSession mCaptureSession;
 
     private Size mVideoSize;
+    private Rect mSensorSize;
+    private Rect mCropSize ;
 
     private MediaCodec mMediaCodec;
     private ImageReader mImgReader ;
@@ -311,6 +314,21 @@ public class Camera2VideoFragment extends Fragment
             StreamConfigurationMap map = characteristics
                     .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             int mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            mSensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+            if( mSensorSize != null ) {
+                final int cropRatioPercent = 10 ;
+                final int cropWidth = (mSensorSize.right - mSensorSize.left) * cropRatioPercent / 100 ;
+                final int cropHeight = (mSensorSize.bottom - mSensorSize.top) * cropRatioPercent / 100 ;
+                mCropSize = new Rect(
+                        mSensorSize.left + (cropWidth/2) ,
+                        mSensorSize.top + (cropHeight/2) ,
+                        mSensorSize.right - (cropWidth/2) ,
+                        mSensorSize.bottom - (cropHeight/2)
+                );
+            }
+            //Log.w("DAMS","Sensor is "+mSensorSize.flattenToString());
+            //Log.w("DAMS","Crop is "+mCropSize.flattenToString());
+
             if (map == null) {
                 throw new RuntimeException("Cannot get available preview/video sizes");
             }
@@ -498,6 +516,7 @@ public class Camera2VideoFragment extends Fragment
                                 camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
                                 camRequestBuilder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_OFF);
                                 camRequestBuilder.set(CaptureRequest.DISTORTION_CORRECTION_MODE, CameraMetadata.DISTORTION_CORRECTION_MODE_HIGH_QUALITY);
+                                //camRequestBuilder.set( CaptureRequest.SCALER_CROP_REGION, mCropSize );
 
                                 mBackgroundThread = new HandlerThread("CameraBackground");
                                 mBackgroundThread.start();
