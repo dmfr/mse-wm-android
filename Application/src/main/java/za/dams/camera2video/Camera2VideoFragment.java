@@ -31,6 +31,7 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
+import android.hardware.HardwareBuffer;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -43,6 +44,7 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.ImageWriter;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
@@ -145,6 +147,7 @@ public class Camera2VideoFragment extends Fragment
 
     private MediaCodec mMediaCodec;
     private ImageReader mImgReader ;
+    private ImageWriter mImgWriter ;
     private AudioRecord mAudioRecord ;
     private long mImageFramePTS ;
     private int mImageYUVbytesize ;
@@ -440,7 +443,8 @@ public class Camera2VideoFragment extends Fragment
                 mImageYUVbytesize = mVideoSize.getWidth() * mVideoSize.getHeight() * 12 / 8 ;
                 //https://wiki.videolan.org/YUV
 
-                mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.YUV_420_888,5);
+                mImgWriter = ImageWriter.newInstance(mMediaCodec.createInputSurface(),5,ImageFormat.PRIVATE);
+                mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.PRIVATE,5, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
                 Surface imgSurface = mImgReader.getSurface() ;
                 surfaces.add(imgSurface);
                 mImgReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
@@ -450,24 +454,11 @@ public class Camera2VideoFragment extends Fragment
                         if( img==null ) {
                             return ;
                         }
-                        int inputBufferId = mMediaCodec.dequeueInputBuffer(0);
-                        if (inputBufferId >= 0) {
-                            // int sizeReturn = mMediaCodec.getInputBuffer(inputBufferId).remaining() ;
-                            Image imgwrite = mMediaCodec.getInputImage(inputBufferId) ;
-                            for( int i=0 ; i<imgwrite.getPlanes().length ; i++ ) {
-                                ByteBuffer buffer = img.getPlanes()[i].getBuffer();
-                                byte[] bytes = new byte[buffer.remaining()];
-                                buffer.get(bytes);
-
-                                imgwrite.getPlanes()[i].getBuffer().put(bytes) ;
-                            }
-                            // imgwrite.close();
-                            long PTS = mNbInputImg * mImageFramePTS ;
-                            mMediaCodec.queueInputBuffer(inputBufferId, 0, mImageYUVbytesize, PTS, 0);
-                            mNbInputImg++;
-                            //Log.w("DAMS","Read image = "+mNbInputImg);
-                        }
+                        mImgWriter.queueInputImage(img);
                         img.close();
+
+                        // https://stackoverflow.com/questions/76914334/camera2-pass-images-from-imagereader-to-mediarecorder
+                        // https://stackoverflow.com/questions/28027858/color-formatsurface-implementation
                     }
                 },mImageHandler);
 
@@ -589,7 +580,7 @@ public class Camera2VideoFragment extends Fragment
         format.setInteger(MediaFormat.KEY_BIT_RATE, mPrefs.getVideoBitrate());
         format.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, sFPS);
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
+        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         format.setInteger(MediaFormat.KEY_LATENCY, 0);
         format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
