@@ -48,7 +48,7 @@ public class CameraActivity extends Activity {
         // https://github.com/square/okhttp/blob/master/okhttp-testing-support/src/jvmMain/kotlin/okhttp3/OkHttpDebugLogging.kt
         // https://www.tabnine.com/code/java/classes/java.util.logging.ConsoleHandler
 
-        mWifiLock = ((WifiManager)getSystemService(Context.WIFI_SERVICE)).createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF,"za.dams.camera2video.WIFI_MODE_FULL_HIGH_PERF") ;
+        //mWifiLock = ((WifiManager)getSystemService(Context.WIFI_SERVICE)).createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY,"za.dams.camera2video.WIFI_MODE_FULL_LOW_LATENCY") ;
 
         if( !hasPermissionsGranted(VIDEO_PERMISSIONS)) {
             ActivityCompat.requestPermissions(this, VIDEO_PERMISSIONS, REQUEST_VIDEO_PERMISSIONS);
@@ -68,11 +68,11 @@ public class CameraActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        mWifiLock.acquire();
+        //mWifiLock.acquire();
     }
     @Override
     protected void onPause() {
-        mWifiLock.release();
+        //mWifiLock.release();
         super.onPause();
     }
 
