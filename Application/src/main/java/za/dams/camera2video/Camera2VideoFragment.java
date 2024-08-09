@@ -149,8 +149,6 @@ public class Camera2VideoFragment extends Fragment
     private ImageReader mImgReader ;
     private ImageWriter mImgWriter ;
     private AudioRecord mAudioRecord ;
-    private long mImageFramePTS ;
-    private int mImageYUVbytesize ;
 
     private OkHttpClient okHttpClient ;
     private WebSocket websocket ;
@@ -163,7 +161,6 @@ public class Camera2VideoFragment extends Fragment
      */
     private boolean mIsRecordingVideoPending ;
     private boolean mIsRecordingVideo;
-    private int mNbInputImg;
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -439,10 +436,6 @@ public class Camera2VideoFragment extends Fragment
                 mImageThread.start();
                 mImageHandler = new Handler(mImageThread.getLooper());
 
-                mImageFramePTS = 1000000l / (long)sFPS ;
-                mImageYUVbytesize = mVideoSize.getWidth() * mVideoSize.getHeight() * 12 / 8 ;
-                //https://wiki.videolan.org/YUV
-
                 mImgWriter = ImageWriter.newInstance(mMediaCodec.createInputSurface(),5,ImageFormat.PRIVATE);
                 mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.PRIVATE,5, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
                 Surface imgSurface = mImgReader.getSurface() ;
@@ -462,8 +455,6 @@ public class Camera2VideoFragment extends Fragment
                     }
                 },mImageHandler);
 
-
-                mNbInputImg=0;
                 mMediaCodec.start();
                 mEncoderThread = new EncoderThread(mMediaCodec,websocket);
                 mEncoderThread.start();
