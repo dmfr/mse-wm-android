@@ -564,8 +564,8 @@ public class Camera2VideoFragment extends Fragment
         MediaFormat format = MediaFormat.createVideoFormat(codecMimetype,
                 streamWidth, streamHeight);
         int bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
-        if( mPrefs.getVideoBitrate() < 2000000 ) {
-            bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
+        if( mPrefs.getVideoBitrate() >= 2000000 ) {
+            bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
         }
         format.setInteger(MediaFormat.KEY_PROFILE, codecProfile);
         format.setInteger(MediaFormat.KEY_BIT_RATE, mPrefs.getVideoBitrate());
