@@ -733,9 +733,10 @@ public class Camera2VideoFragment extends Fragment
     }
     private void stopRecordingVideo( boolean isGoingAway ) {
         // UI
-        utilKeepScreenOn(false);
         mIsRecordingVideoPending = false ;
         mIsRecordingVideo = false ;
+
+        utilKeepScreenOn(false);
         updateUI(true) ;
 
         // Stop recording
@@ -861,7 +862,7 @@ public class Camera2VideoFragment extends Fragment
             isRunning=false ;
         }
     }
-    private static class EncoderThread extends Thread {
+    private class EncoderThread extends Thread {
         private boolean isRunning = true ;
         MediaCodec.BufferInfo mBufferInfo;
         final long mTimeoutUsec;
@@ -901,7 +902,9 @@ public class Camera2VideoFragment extends Fragment
                         mediaCodec.releaseOutputBuffer(status, false);
 
                         //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
-                        webSocket.send(bs);
+                        if( mIsRecordingVideo ) {
+                            webSocket.send(bs);
+                        }
                         //Log.w("DAMS","Send websocket");
                     }
                 }
@@ -912,7 +915,7 @@ public class Camera2VideoFragment extends Fragment
             isRunning=false ;
         }
     }
-    private static class AudioEncoderThread extends Thread {
+    private class AudioEncoderThread extends Thread {
         private boolean isRunning = true ;
         MediaCodec.BufferInfo mBufferInfo;
         final long mTimeoutUsec;
@@ -960,8 +963,9 @@ public class Camera2VideoFragment extends Fragment
                             ByteBuffer outbb = ByteBuffer.allocate(rawlength+ header.length).put(header).put(rawdata);
                             outbb.rewind();
                             bs = ByteString.of(outbb);
-                            webSocket.send(bs);
-
+                            if( mIsRecordingVideo ) {
+                                webSocket.send(bs);
+                            }
                         }
                         mediaCodec.releaseOutputBuffer(status, false);
                     }
