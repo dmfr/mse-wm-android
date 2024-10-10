@@ -161,6 +161,8 @@ public class Camera2VideoFragment extends Fragment
      */
     private boolean mIsRecordingVideoPending ;
     private boolean mIsRecordingVideo;
+    private long mIsRecordingVideoStartTs ;
+    private int mIsRecordingVideoCntFrames;
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -443,11 +445,21 @@ public class Camera2VideoFragment extends Fragment
                 mImgReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                     @Override
                     public void onImageAvailable(ImageReader reader) {
+                        long currentTs = System.currentTimeMillis();
+                        if( mIsRecordingVideoStartTs == 0 ) {
+                            mIsRecordingVideoStartTs = currentTs ;
+                        }
+                        int nbFramesDue = (int)((currentTs-mIsRecordingVideoStartTs) * sFPS / 1000) ;
+                        nbFramesDue++ ;
+
                         Image img = reader.acquireLatestImage() ;
                         if( img==null ) {
                             return ;
                         }
-                        mImgWriter.queueInputImage(img);
+                        while( nbFramesDue > mIsRecordingVideoCntFrames ) {
+                            mIsRecordingVideoCntFrames++ ;
+                            mImgWriter.queueInputImage(img);
+                        }
                         img.close();
 
                         // https://stackoverflow.com/questions/76914334/camera2-pass-images-from-imagereader-to-mediarecorder
@@ -494,9 +506,9 @@ public class Camera2VideoFragment extends Fragment
                                     camRequestBuilder.addTarget(s);
                                 }
                                 camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-                                camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(sFPS, sFPS));
+                                camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(sFPS, sFPS*2));
                                 camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
-                                camRequestBuilder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_OFF);
+                                camRequestBuilder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON);
                                 camRequestBuilder.set(CaptureRequest.DISTORTION_CORRECTION_MODE, CameraMetadata.DISTORTION_CORRECTION_MODE_FAST);
                                 //camRequestBuilder.set( CaptureRequest.SCALER_CROP_REGION, mCropSize );
 
@@ -514,6 +526,8 @@ public class Camera2VideoFragment extends Fragment
                                     public void run() {
                                         mIsRecordingVideoPending = false ;
                                         mIsRecordingVideo = true;
+                                        mIsRecordingVideoStartTs = 0 ;
+                                        mIsRecordingVideoCntFrames = 0 ;
 
                                         mAudioRecord.startRecording();
                                         mAudioThread.start();
@@ -563,7 +577,7 @@ public class Camera2VideoFragment extends Fragment
         mMediaCodec = MediaCodec.createEncoderByType(codecMimetype);
         MediaFormat format = MediaFormat.createVideoFormat(codecMimetype,
                 streamWidth, streamHeight);
-        int bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
+        int bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
         if( mPrefs.getVideoBitrate() >= 2000000 ) {
             bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
         }
