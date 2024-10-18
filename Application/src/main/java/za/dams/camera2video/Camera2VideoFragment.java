@@ -529,8 +529,10 @@ public class Camera2VideoFragment extends Fragment
                                         mIsRecordingVideoStartTs = 0 ;
                                         mIsRecordingVideoCntFrames = 0 ;
 
-                                        mAudioRecord.startRecording();
-                                        mAudioThread.start();
+                                        if( mAudioRecord != null ) {
+                                            mAudioRecord.startRecording();
+                                            mAudioThread.start();
+                                        }
 
                                         updateUI();
                                     }
