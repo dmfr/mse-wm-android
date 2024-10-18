@@ -456,7 +456,7 @@ public class Camera2VideoFragment extends Fragment
                         if( img==null ) {
                             return ;
                         }
-                        while( nbFramesDue > mIsRecordingVideoCntFrames ) {
+                        if( nbFramesDue > mIsRecordingVideoCntFrames ) {
                             mIsRecordingVideoCntFrames++ ;
                             mImgWriter.queueInputImage(img);
                         }
@@ -500,13 +500,15 @@ public class Camera2VideoFragment extends Fragment
                             mCaptureSession = session;
 
                             try {
+                                int minFPS = sFPS ;
+                                int maxFPS = Math.min(sFPS*2,60);
                                 //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
                                 CaptureRequest.Builder camRequestBuilder = session.getDevice().createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
                                 for( Surface s : surfaces ) {
                                     camRequestBuilder.addTarget(s);
                                 }
                                 camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-                                camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(sFPS, sFPS*2));
+                                camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(minFPS, maxFPS));
                                 camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
                                 camRequestBuilder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON);
                                 camRequestBuilder.set(CaptureRequest.DISTORTION_CORRECTION_MODE, CameraMetadata.DISTORTION_CORRECTION_MODE_FAST);
