@@ -53,6 +53,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.Process;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
@@ -434,7 +435,7 @@ public class Camera2VideoFragment extends Fragment
             surfaces.add(previewSurface);
 
             if( mIsRecordingVideoPending && (mMediaCodec != null) ) {
-                mImageThread = new HandlerThread("imgThread") ;
+                mImageThread = new HandlerThread("imgThread", Process.THREAD_PRIORITY_VIDEO) ;
                 mImageThread.start();
                 mImageHandler = new Handler(mImageThread.getLooper());
 
@@ -514,7 +515,7 @@ public class Camera2VideoFragment extends Fragment
                                 camRequestBuilder.set(CaptureRequest.DISTORTION_CORRECTION_MODE, CameraMetadata.DISTORTION_CORRECTION_MODE_FAST);
                                 //camRequestBuilder.set( CaptureRequest.SCALER_CROP_REGION, mCropSize );
 
-                                mBackgroundThread = new HandlerThread("CameraBackground");
+                                mBackgroundThread = new HandlerThread("CameraBackground", Process.THREAD_PRIORITY_VIDEO);
                                 mBackgroundThread.start();
                                 mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
 
@@ -536,9 +537,13 @@ public class Camera2VideoFragment extends Fragment
                                             mAudioThread.start();
                                         }
 
+                                        //Process.setThreadPriority(Process.THREAD_PRIORITY_VIDEO);
+
                                         updateUI();
                                     }
                                 });
+
+                                //Process.setThreadPriority(Process.THREAD_PRIORITY_VIDEO);
                             }
                         }
 
@@ -901,6 +906,7 @@ public class Camera2VideoFragment extends Fragment
         @Override
         public void run() {
             super.run();
+            Process.setThreadPriority(Process.THREAD_PRIORITY_VIDEO);
             while( isRunning ) {
                 encode() ;
             }
@@ -954,6 +960,7 @@ public class Camera2VideoFragment extends Fragment
         @Override
         public void run() {
             super.run();
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
             while( isRunning ) {
                 encode() ;
             }
