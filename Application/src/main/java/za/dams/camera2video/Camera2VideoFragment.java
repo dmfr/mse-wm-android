@@ -182,7 +182,9 @@ public class Camera2VideoFragment extends Fragment
     private MediaCodec mMediaCodecAudio ;
     private AudioEncoderThread mAudioEncoderThread ;
 
-
+    private long mImageFramePTS ;
+    private int mImageYUVbytesize ;
+    private int mNbInputImg;
     private Semaphore mCameraOpenCloseLock = new Semaphore(1);
 
     public static Camera2VideoFragment newInstance() {
@@ -439,8 +441,13 @@ public class Camera2VideoFragment extends Fragment
                 mImageThread.start();
                 mImageHandler = new Handler(mImageThread.getLooper());
 
+                mImageFramePTS = 1000000l / (long)sFPS ;
+                mImageYUVbytesize = mVideoSize.getWidth() * mVideoSize.getHeight() * 12 / 8 ;
+                //https://wiki.videolan.org/YUV
+
                 mImgWriter = ImageWriter.newInstance(mMediaCodec.createInputSurface(),5,ImageFormat.PRIVATE);
                 mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.PRIVATE,5, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+                //mImgReader = ImageReader.newInstance(mVideoSize.getWidth(), mVideoSize.getHeight(), ImageFormat.YUV_420_888,5);
                 Surface imgSurface = mImgReader.getSurface() ;
                 surfaces.add(imgSurface);
                 mImgReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
@@ -460,6 +467,23 @@ public class Camera2VideoFragment extends Fragment
                         if( nbFramesDue > mIsRecordingVideoCntFrames ) {
                             mIsRecordingVideoCntFrames++ ;
                             mImgWriter.queueInputImage(img);
+//                            int inputBufferId = mMediaCodec.dequeueInputBuffer(0);
+//                            if (inputBufferId >= 0) {
+//                                // int sizeReturn = mMediaCodec.getInputBuffer(inputBufferId).remaining() ;
+//                                Image imgwrite = mMediaCodec.getInputImage(inputBufferId);
+//                                for (int i = 0; i < imgwrite.getPlanes().length; i++) {
+//                                    ByteBuffer buffer = img.getPlanes()[i].getBuffer();
+//                                    byte[] bytes = new byte[buffer.remaining()];
+//                                    buffer.get(bytes);
+//
+//                                    imgwrite.getPlanes()[i].getBuffer().put(bytes);
+//                                }
+//                                // imgwrite.close();
+//                                long PTS = mNbInputImg * mImageFramePTS;
+//                                mMediaCodec.queueInputBuffer(inputBufferId, 0, mImageYUVbytesize, PTS, 0);
+//                                mNbInputImg++;
+//                                //Log.w("DAMS","Read image = "+mNbInputImg);
+//                            }
                         }
                         img.close();
 
@@ -595,6 +619,7 @@ public class Camera2VideoFragment extends Fragment
         format.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, sFPS);
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+        //format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         format.setInteger(MediaFormat.KEY_LATENCY, 0);
         format.setInteger(MediaFormat.KEY_LOW_LATENCY, 1);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
