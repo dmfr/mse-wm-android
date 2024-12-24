@@ -672,8 +672,10 @@ public class Camera2VideoFragment extends Fragment
             mImgReader.close();
             mImgReader = null ;
 
-            mImgWriter.close();
-            mImgWriter = null ;
+            if( mImgWriter != null ) {
+                mImgWriter.close();
+                mImgWriter = null;
+            }
         }
         if( mMediaCodec != null ) {
             mMediaCodec.stop() ;
