@@ -16,6 +16,7 @@ public class UtilPreferences {
     private static final String default_videoCodec = "avc" ;
     private static final String default_videoProfile = "baseline" ;
     private static final String default_videoResolution = "720p" ;
+    private static final String default_videoFps = "30" ;
 
     public UtilPreferences(Context context) {
         this.mContext = context.getApplicationContext() ;
@@ -61,6 +62,11 @@ public class UtilPreferences {
             return new Size(1280,720) ;
         }
     }
+    public int getVideoFps() {
+        String strFps = mSharedPreferences.getString("video_fps", default_videoFps) ;
+        int fps = Integer.parseInt(strFps) ;
+        return fps;
+    }
 
 
 
@@ -79,8 +85,9 @@ public class UtilPreferences {
                 videoFormat = "avc" ;
                 break ;
         }
+        int videoFps = getVideoFps();
 
-        return wsWebsocketUrlBase+"/record"+"?"+"format="+videoFormat+"&audio=1" ;
+        return wsWebsocketUrlBase+"/record"+"?"+"format="+videoFormat+"&audio=1"+"&fps="+videoFps ;
     }
     public String getPeerWebsocketPlayUrl(){
         String wsWebsocketUrlBase = mSharedPreferences.getString("peer_wsUrlBase", mContext.getString(R.string.peer_wsUrlBase) ) ;

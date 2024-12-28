@@ -42,6 +42,12 @@
             android:entries="@array/videoBitrates_text"
             android:entryValues="@array/videoBitrates_values" />
 
+        <ListPreference
+            android:key="video_fps"
+            android:title="Frame rate"
+            android:entries="@array/videoFps_text"
+            android:entryValues="@array/videoFps_values" />
+
     </PreferenceCategory>
 
     <PreferenceCategory

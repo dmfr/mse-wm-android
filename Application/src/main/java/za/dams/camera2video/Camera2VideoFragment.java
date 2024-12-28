@@ -130,7 +130,7 @@ public class Camera2VideoFragment extends Fragment
     private static final String FRAGMENT_DIALOG = "dialog";
 
 
-    private static int sFPS = 30 ;
+    private static int mFPS ;
 
     private UtilPreferences mPrefs ;
 
@@ -338,6 +338,7 @@ public class Camera2VideoFragment extends Fragment
                 throw new RuntimeException("Cannot get available preview/video sizes");
             }
             mVideoSize = mPrefs.getVideoResolution();
+            mFPS = mPrefs.getVideoFps();
             //Log.d("damsdebug", "VideoSize : "+mVideoSize.getWidth()+" x "+mVideoSize.getHeight());
 
             int orientation = getResources().getConfiguration().orientation;
@@ -441,7 +442,7 @@ public class Camera2VideoFragment extends Fragment
                 mImageThread.start();
                 mImageHandler = new Handler(mImageThread.getLooper());
 
-                mImageFramePTS = 1000000l / (long)sFPS ;
+                mImageFramePTS = 1000000l / (long)mFPS ;
                 mImageYUVbytesize = mVideoSize.getWidth() * mVideoSize.getHeight() * 12 / 8 ;
                 //https://wiki.videolan.org/YUV
 
@@ -457,7 +458,7 @@ public class Camera2VideoFragment extends Fragment
                         if( mIsRecordingVideoStartTs == 0 ) {
                             mIsRecordingVideoStartTs = currentTs ;
                         }
-                        int nbFramesDue = (int)((currentTs-mIsRecordingVideoStartTs) * sFPS / 1000) ;
+                        int nbFramesDue = (int)((currentTs-mIsRecordingVideoStartTs) * mFPS / 1000) ;
                         nbFramesDue++ ;
 
                         Image img = reader.acquireLatestImage() ;
@@ -525,8 +526,8 @@ public class Camera2VideoFragment extends Fragment
                             mCaptureSession = session;
 
                             try {
-                                int minFPS = sFPS ;
-                                int maxFPS = Math.min(sFPS*2,60);
+                                int minFPS = mFPS ;
+                                int maxFPS = Math.min(mFPS*2,60);
                                 //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
                                 CaptureRequest.Builder camRequestBuilder = session.getDevice().createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
                                 for( Surface s : surfaces ) {
@@ -617,7 +618,7 @@ public class Camera2VideoFragment extends Fragment
         format.setInteger(MediaFormat.KEY_PROFILE, codecProfile);
         format.setInteger(MediaFormat.KEY_BIT_RATE, mPrefs.getVideoBitrate());
         format.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, sFPS);
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, mFPS);
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         //format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         format.setInteger(MediaFormat.KEY_LATENCY, 0);
