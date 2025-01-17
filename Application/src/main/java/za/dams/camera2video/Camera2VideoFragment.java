@@ -543,11 +543,14 @@ public class Camera2VideoFragment extends Fragment
                                 for( Surface s : surfaces ) {
                                     camRequestBuilder.addTarget(s);
                                 }
-                                camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+                                //camRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+                                camRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_ON);
                                 camRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, new Range(minFPS, maxFPS));
                                 camRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
                                 camRequestBuilder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, CameraMetadata.LENS_OPTICAL_STABILIZATION_MODE_ON);
                                 camRequestBuilder.set(CaptureRequest.DISTORTION_CORRECTION_MODE, CameraMetadata.DISTORTION_CORRECTION_MODE_FAST);
+                                camRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
+                                camRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
                                 //camRequestBuilder.set( CaptureRequest.SCALER_CROP_REGION, mCropSize );
 
                                 mBackgroundThread = new HandlerThread("CameraBackground", Process.THREAD_PRIORITY_VIDEO);
