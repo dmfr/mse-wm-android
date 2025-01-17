@@ -54,6 +54,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
+import android.os.SystemClock;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
@@ -318,6 +319,10 @@ public class Camera2VideoFragment extends Fragment
             CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
             StreamConfigurationMap map = characteristics
                     .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+//            Range<Integer>[] fpsRanges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+//            for( Range<Integer> fpsRange : fpsRanges) {
+//                Log.w("DAMSfps","["+fpsRange.getLower()+","+fpsRange.getUpper()+"]")   ;
+//            }
             int mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
             mSensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
             if( mSensorSize != null ) {
@@ -454,18 +459,22 @@ public class Camera2VideoFragment extends Fragment
                 mImgReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                     @Override
                     public void onImageAvailable(ImageReader reader) {
-                        long currentTs = System.currentTimeMillis();
+                        long currentTs = SystemClock.elapsedRealtime();
                         if( mIsRecordingVideoStartTs == 0 ) {
                             mIsRecordingVideoStartTs = currentTs ;
                         }
-                        int nbFramesDue = (int)((currentTs-mIsRecordingVideoStartTs) * mFPS / 1000) ;
-                        nbFramesDue++ ;
+
+//                        int nbFramesDue = (int)((currentTs-mIsRecordingVideoStartTs) * mFPS / 1000) ;
+//                        nbFramesDue++ ;
+//                        if( nbFramesDue > mIsRecordingVideoCntFrames ) {
+//                            // should record frame
+//                        }
 
                         Image img = reader.acquireLatestImage() ;
                         if( img==null ) {
                             return ;
                         }
-                        if( nbFramesDue > mIsRecordingVideoCntFrames ) {
+                        if( true ) {
                             mIsRecordingVideoCntFrames++ ;
                             mImgWriter.queueInputImage(img);
 //                            int inputBufferId = mMediaCodec.dequeueInputBuffer(0);
@@ -526,8 +535,9 @@ public class Camera2VideoFragment extends Fragment
                             mCaptureSession = session;
 
                             try {
-                                int minFPS = mFPS ;
-                                int maxFPS = Math.min(mFPS*2,60);
+                                int minFPS = mFPS, maxFPS = mFPS ;
+                                //int maxFPS = Math.min(mFPS*2,60);
+
                                 //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
                                 CaptureRequest.Builder camRequestBuilder = session.getDevice().createCaptureRequest(mIsRecordingVideoPending ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
                                 for( Surface s : surfaces ) {
