@@ -117,6 +117,7 @@ public class Camera2VideoFragment extends Fragment
         }
         @Override
         public void onClosed(WebSocket webSocket, int code, String reason) {
+            //Log.w("DAMS","Websocket terminated.");
             Camera2VideoFragment.this.websocket = null ;
         }
         @Override
@@ -252,6 +253,7 @@ public class Camera2VideoFragment extends Fragment
             stopRecordingVideo(true);
         }
         closeCamera();
+        closeWebsocket(true);
         super.onPause();
     }
 
@@ -724,7 +726,7 @@ public class Camera2VideoFragment extends Fragment
     }
 
     private void setUpWebsocket() {
-        closeWebsocket() ;
+        closeWebsocket(true) ;
 
         String wsUrl = mPrefs.getPeerWebsocketRecordUrl();
         wsRunning = wsError = false ;
@@ -733,8 +735,12 @@ public class Camera2VideoFragment extends Fragment
         //okHttpClient.dispatcher().executorService().shutdown();
     }
     private void closeWebsocket() {
+        closeWebsocket(false);
+    }
+    private void closeWebsocket(boolean doForce) {
         if( websocket != null ) {
-            if( websocket.queueSize() > 0l ) {
+            if( websocket.queueSize() > 0l && doForce ) {
+                Log.w("DAMS","has a queue ! size : "+websocket.queueSize());
                 websocket.cancel();
                 return;
             }
