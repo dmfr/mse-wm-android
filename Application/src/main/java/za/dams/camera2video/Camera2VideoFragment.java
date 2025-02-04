@@ -472,12 +472,19 @@ public class Camera2VideoFragment extends Fragment
 //                            // should record frame
 //                        }
 
+
                         Image img = reader.acquireLatestImage() ;
                         if( img==null ) {
                             return ;
                         }
+                        if( !mIsRecordingVideo ) {
+                            //Log.w("DAMS","BARRIER VIDEO !!!!!!!!");
+                            img.close();
+                            return ;
+                        }
                         if( true ) {
                             mIsRecordingVideoCntFrames++ ;
+                            //Log.i("DAMS","Video capture : "+mIsRecordingVideoCntFrames) ;
                             mImgWriter.queueInputImage(img);
 //                            int inputBufferId = mMediaCodec.dequeueInputBuffer(0);
 //                            if (inputBufferId >= 0) {
@@ -900,7 +907,7 @@ public class Camera2VideoFragment extends Fragment
         }
     }
 
-    private static class AudioReaderThread extends Thread {
+    private class AudioReaderThread extends Thread {
         private boolean isRunning = true ;
         private AudioRecord audioRecord ;
         private MediaCodec mediaCodec ;
@@ -918,6 +925,12 @@ public class Camera2VideoFragment extends Fragment
             while( isRunning ) {
                 int length = audioRecord.read(buffer, AUDIO_BUFFERSIZE);
                 //Log.w("DAMS","AUDIO bytes = "+length);
+
+                if( !mIsRecordingVideo ) {
+                    //Log.w("DAMS","BARRIER AUDIO !!!!!!!!");
+                    buffer.clear();
+                    return ;
+                }
 
                 int inputBufferId = mediaCodec.dequeueInputBuffer(0);
                 if (inputBufferId >= 0) {
@@ -939,12 +952,14 @@ public class Camera2VideoFragment extends Fragment
 
         private MediaCodec mediaCodec ;
         private WebSocket webSocket ;
+        //private int mCount;
 
         ByteString bs ;
 
         EncoderThread( MediaCodec mediaCodec, WebSocket webSocket ) {
             this.mediaCodec=mediaCodec;
             this.webSocket=webSocket;
+            //this.mCount=0;
 
             mBufferInfo = new MediaCodec.BufferInfo();
             mTimeoutUsec = 10000l;
@@ -971,12 +986,11 @@ public class Camera2VideoFragment extends Fragment
                         bs = ByteString.of(data);
                         // releasing buffer is important
                         mediaCodec.releaseOutputBuffer(status, false);
-
-                        //Log.e("damsdebug","Buffer is "+webSocket.queueSize());
-                        if( mIsRecordingVideo ) {
-                            webSocket.send(bs);
-                        }
-                        //Log.w("DAMS","Send websocket");
+//                        if( bs.size() > 120 ) {
+//                            this.mCount++;
+//                            Log.i("DAMS", "Video SENT : " + this.mCount + " size : " + bs.size());
+//                        }
+                        webSocket.send(bs);
                     }
                 }
             }
@@ -1035,9 +1049,7 @@ public class Camera2VideoFragment extends Fragment
                             ByteBuffer outbb = ByteBuffer.allocate(rawlength+ header.length).put(header).put(rawdata);
                             outbb.rewind();
                             bs = ByteString.of(outbb);
-                            if( mIsRecordingVideo ) {
-                                webSocket.send(bs);
-                            }
+                            webSocket.send(bs);
                         }
                         mediaCodec.releaseOutputBuffer(status, false);
                     }
