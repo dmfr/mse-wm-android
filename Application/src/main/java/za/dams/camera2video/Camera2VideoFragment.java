@@ -465,10 +465,12 @@ public class Camera2VideoFragment extends Fragment
                             mIsRecordingVideoStartTs = currentTs ;
                         }
 
+//                        boolean shouldRecordFrame = false;
 //                        int nbFramesDue = (int)((currentTs-mIsRecordingVideoStartTs) * mFPS / 1000) ;
 //                        nbFramesDue++ ;
 //                        if( nbFramesDue > mIsRecordingVideoCntFrames ) {
 //                            // should record frame
+//                            shouldRecordFrame = true ;
 //                        }
 
 
@@ -544,6 +546,7 @@ public class Camera2VideoFragment extends Fragment
 
                             try {
                                 int minFPS = mFPS, maxFPS = mFPS ;
+                                //int minFPS = mFPS;
                                 //int maxFPS = Math.min(mFPS*2,60);
 
                                 //HACK stay on template preview while recording (prevent force zoom ? stabilization issue?)
