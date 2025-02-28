@@ -166,6 +166,7 @@ public class Camera2VideoFragment extends Fragment
     private boolean mIsRecordingVideo;
     private long mIsRecordingVideoStartTs ;
     private int mIsRecordingVideoCntFrames;
+    private int mIsRecordingVideoCntFramesSent;
 
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
@@ -580,6 +581,7 @@ public class Camera2VideoFragment extends Fragment
                                         mIsRecordingVideo = true;
                                         mIsRecordingVideoStartTs = 0 ;
                                         mIsRecordingVideoCntFrames = 0 ;
+                                        mIsRecordingVideoCntFramesSent = 0 ;
 
                                         if( mAudioRecord != null ) {
                                             mAudioRecord.startRecording();
@@ -990,6 +992,7 @@ public class Camera2VideoFragment extends Fragment
 //                            Log.i("DAMS", "Video SENT : " + this.mCount + " size : " + bs.size());
 //                        }
                         webSocket.send(bs);
+                        mIsRecordingVideoCntFramesSent++ ;
                     }
                 }
             }
@@ -1048,7 +1051,9 @@ public class Camera2VideoFragment extends Fragment
                             ByteBuffer outbb = ByteBuffer.allocate(rawlength+ header.length).put(header).put(rawdata);
                             outbb.rewind();
                             bs = ByteString.of(outbb);
-                            webSocket.send(bs);
+                            if( mIsRecordingVideoCntFramesSent > 0 ) {
+                                webSocket.send(bs);
+                            }
                         }
                         mediaCodec.releaseOutputBuffer(status, false);
                     }
